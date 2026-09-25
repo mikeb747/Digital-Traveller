@@ -1,0 +1,8 @@
+{
+  "name": "Digital Traveller",
+  "description": "Production manufacturing & calibration digital traveler for InVia, Virsa, and inLux spectrometer systems with real-time workflow tracking, status timestamps, and JSON data storage.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
