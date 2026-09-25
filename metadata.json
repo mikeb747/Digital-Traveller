@@ -1,0 +1,8 @@
+{
+  "name": "Digital Traveller",
+  "description": "Technician Workbench & Digital Traveller application for manufacturing, electronics assembly, quality sign-offs, and shop-floor execution.",
+  "prompt": "Technician Workbench or Digital Traveller Application in python",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
