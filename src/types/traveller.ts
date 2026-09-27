@@ -1,6 +1,7 @@
 export type SystemType = 'InVia' | 'Virsa' | 'inLux';
 
-export type WorkflowStage = 'Setup' | 'Calibration' | 'Final Test & Release';
+export type DefaultWorkflowStage = 'Setup' | 'Calibration' | 'Final Test & Release';
+export type WorkflowStage = string;
 
 export type StepStatus = 'Not Started' | 'In Progress' | 'Complete';
 
@@ -23,10 +24,14 @@ export interface TravellerRecord {
   serialNumber: string;
   system: SystemType;
   workOrderNumber: string;
+  customerName?: string;
+  jobNumber?: string;
+  partNumber?: string;
   operatorName: string;
   createdAt: string;
   updatedAt: string;
   activeStage: WorkflowStage;
+  stages?: string[];
   steps: WorkflowStep[];
   auditLog: {
     timestamp: string;

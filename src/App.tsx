@@ -12,6 +12,14 @@ import { BarcodeModal } from './components/BarcodeModal';
 import { WorkflowConfigModal } from './components/WorkflowConfigModal';
 
 export const App: React.FC = () => {
+  // Theme state: 'dark' | 'light'
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    return (localStorage.getItem('digital_traveller_theme') as 'dark' | 'light') || 'dark';
+  });
+
+  // Admin state (unlocked by selecting 'Admin' with password '520Shift')
+  const [isAdmin, setIsAdmin] = useState(false);
+
   // Load initial traveller from localStorage or initialize defaults
   const [traveller, setTraveller] = useState<TravellerRecord>(() => {
     return StorageService.loadCurrentTraveller();
@@ -25,6 +33,7 @@ export const App: React.FC = () => {
   const [isStepDialogOpen, setIsStepDialogOpen] = useState(false);
   const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [notification, setNotification] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -33,39 +42,82 @@ export const App: React.FC = () => {
     StorageService.saveTraveller(traveller);
   }, [traveller]);
 
+  // Persist theme
+  useEffect(() => {
+    localStorage.setItem('digital_traveller_theme', theme);
+  }, [theme]);
+
+  // Auto clear notification
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
   // Find currently active step
-  const selectedStep = traveller.steps.find(s => s.id === selectedStepId) || null;
+  const selectedStep = traveller.steps.find((s) => s.id === selectedStepId) || null;
+
+  const handleToggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
 
   // Handle stage selection
   const handleSelectStage = (stage: WorkflowStage) => {
     setActiveStage(stage);
-    setTraveller(prev => ({
+    setTraveller((prev) => ({
       ...prev,
       activeStage: stage,
       updatedAt: new Date().toISOString()
     }));
   };
 
-  // Handle system selection (InVia / Virsa / inLux)
-  const handleSelectSystem = (newSystem: SystemType) => {
-    if (newSystem === traveller.system) return;
-
-    if (window.confirm(`Switch system to ${newSystem}? A new traveller record will be initialized for this system model.`)) {
-      const newRec = StorageService.createNewTraveller(newSystem);
-      setTraveller(newRec);
-      setActiveStage('Setup');
+  // Admin feature: Add a new blank tab
+  const handleAddTab = (tabName: string) => {
+    const existingStages = traveller.stages || ['Setup', 'Calibration', 'Final Test & Release'];
+    if (!existingStages.includes(tabName)) {
+      setTraveller((prev) => ({
+        ...prev,
+        stages: [...(prev.stages || ['Setup', 'Calibration', 'Final Test & Release']), tabName],
+        activeStage: tabName,
+        updatedAt: new Date().toISOString(),
+        auditLog: [
+          {
+            timestamp: new Date().toISOString(),
+            action: `Admin created new tab "${tabName}"`,
+            user: prev.operatorName
+          },
+          ...prev.auditLog
+        ]
+      }));
+      setActiveStage(tabName);
       setSelectedStepId(null);
-      setIsStepDialogOpen(false);
+      setNotification(`Created tab "${tabName}"`);
+    } else {
+      setActiveStage(tabName);
     }
   };
 
-  // Handle step selection from list: open dialog window as required
+  // Handle system selection (InVia / Virsa / inLux) seamlessly without blocking prompts
+  const handleSelectSystem = (newSystem: SystemType) => {
+    if (newSystem === traveller.system) return;
+
+    StorageService.saveTraveller(traveller);
+    const targetTraveller = StorageService.loadTravellerForSystem(newSystem);
+    setTraveller(targetTraveller);
+    setActiveStage(targetTraveller.activeStage || 'Setup');
+    setSelectedStepId(null);
+    setIsStepDialogOpen(false);
+    setNotification(`Switched system to ${newSystem}`);
+  };
+
+  // Handle step selection from list: ONLY select the step, DO NOT open dialog
   const handleSelectStep = (step: WorkflowStep) => {
     setSelectedStepId(step.id);
-    setIsStepDialogOpen(true);
   };
 
   // Handle step status update from dialog
+  // When a task is marked complete, automatically select the next task on the list
   const handleUpdateStepStatus = (stepId: string, status: StepStatus, notes?: string) => {
     const updated = WorkflowService.updateStepStatus(
       traveller,
@@ -75,6 +127,15 @@ export const App: React.FC = () => {
       notes
     );
     setTraveller(updated);
+
+    // Auto-select the next task in the active stage list when marked Complete
+    if (status === 'Complete') {
+      const stageSteps = updated.steps.filter((s) => s.stage === activeStage);
+      const currentIndex = stageSteps.findIndex((s) => s.id === stepId);
+      if (currentIndex !== -1 && currentIndex + 1 < stageSteps.length) {
+        setSelectedStepId(stageSteps[currentIndex + 1].id);
+      }
+    }
   };
 
   // Handle checklist toggle
@@ -95,45 +156,87 @@ export const App: React.FC = () => {
     setTraveller(updated);
   };
 
-  // Handle operator change
-  const handleChangeOperator = (operatorName: string) => {
-    setTraveller(prev => ({
+  // Handle operator change & Admin mode toggle
+  const handleChangeOperator = (operatorName: string, isUserAdmin: boolean) => {
+    setIsAdmin(isUserAdmin);
+    setTraveller((prev) => ({
       ...prev,
       operatorName,
-      updatedAt: new Date().toISOString()
-    }));
-  };
-
-  // Handle barcode update
-  const handleUpdateSerial = (newSerial: string) => {
-    setTraveller(prev => ({
-      ...prev,
-      serialNumber: newSerial,
       updatedAt: new Date().toISOString(),
       auditLog: [
         {
           timestamp: new Date().toISOString(),
-          action: `Instrument serial barcode updated to ${newSerial}`,
+          action: `Active technician set to ${operatorName}${isUserAdmin ? ' (Admin unlocked)' : ''}`,
+          user: operatorName
+        },
+        ...prev.auditLog
+      ]
+    }));
+    if (isUserAdmin) {
+      setNotification('Admin mode active (+Add Tab & +Add Step unlocked)');
+    }
+  };
+
+  // Handle reordering steps (Admin drag and drop)
+  const handleReorderSteps = (reorderedSteps: WorkflowStep[]) => {
+    setTraveller((prev) => ({
+      ...prev,
+      steps: reorderedSteps,
+      updatedAt: new Date().toISOString()
+    }));
+  };
+
+  // Handle barcode & unit info update (Customer Name, Job Number, Part Number, Serial Number)
+  const handleUpdateDetails = (details: {
+    serialNumber: string;
+    customerName: string;
+    jobNumber: string;
+    partNumber: string;
+  }) => {
+    setTraveller((prev) => ({
+      ...prev,
+      serialNumber: details.serialNumber,
+      customerName: details.customerName,
+      jobNumber: details.jobNumber,
+      partNumber: details.partNumber,
+      updatedAt: new Date().toISOString(),
+      auditLog: [
+        {
+          timestamp: new Date().toISOString(),
+          action: `Unit details updated: S/N ${details.serialNumber}${
+            details.customerName ? ` | Customer: ${details.customerName}` : ''
+          }${details.jobNumber ? ` | Job: ${details.jobNumber}` : ''}${
+            details.partNumber ? ` | Part: ${details.partNumber}` : ''
+          }`,
           user: prev.operatorName
         },
         ...prev.auditLog
       ]
     }));
+    setNotification('Hardware & unit details updated');
   };
 
   // Handle New Traveller creation
   const handleCreateNewTraveller = () => {
-    if (window.confirm('Create a new blank digital traveller for this system?')) {
-      const newRec = StorageService.createNewTraveller(traveller.system);
-      setTraveller(newRec);
-      setSelectedStepId(null);
-      setIsStepDialogOpen(false);
-    }
+    const newRec = StorageService.createNewTraveller(
+      traveller.system,
+      undefined,
+      traveller.customerName,
+      traveller.jobNumber,
+      traveller.partNumber,
+      traveller.operatorName
+    );
+    setTraveller(newRec);
+    setSelectedStepId(null);
+    setIsStepDialogOpen(false);
+    setActiveStage('Setup');
+    setNotification(`New digital traveller record created for ${traveller.system}`);
   };
 
   // Handle Export to JSON
   const handleExportJson = () => {
     StorageService.exportToJson(traveller);
+    setNotification('JSON record exported successfully');
   };
 
   // Trigger file dialog for importing JSON
@@ -157,9 +260,9 @@ export const App: React.FC = () => {
         setTraveller(importedRecord);
         setActiveStage(importedRecord.activeStage || 'Setup');
         setSelectedStepId(null);
-        alert(`Successfully imported traveller for ${importedRecord.system} (${importedRecord.serialNumber})`);
+        setNotification(`Imported traveller: ${importedRecord.system} (${importedRecord.serialNumber})`);
       } catch (err: any) {
-        alert(`Failed to import JSON: ${err.message || 'Invalid format'}`);
+        setNotification(`Import failed: ${err.message || 'Invalid format'}`);
       }
     };
     reader.readAsText(file);
@@ -169,12 +272,21 @@ export const App: React.FC = () => {
     <WindowFrame
       system={traveller.system}
       serialNumber={traveller.serialNumber}
+      theme={theme}
+      onToggleTheme={handleToggleTheme}
       onOpenConfig={() => setIsConfigModalOpen(true)}
-      onOpenBarcode={() => setIsBarcodeModalOpen(true)}
       onExportJson={handleExportJson}
       onImportJsonClick={handleImportJsonClick}
       onNewTraveller={handleCreateNewTraveller}
     >
+      {/* Toast Notification */}
+      {notification && (
+        <div className="fixed bottom-6 right-4 z-50 bg-slate-900 border border-blue-500/70 text-slate-100 px-3.5 py-2 rounded-lg shadow-xl text-xs flex items-center space-x-2 animate-in fade-in slide-in-from-bottom-2 duration-150">
+          <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
+          <span>{notification}</span>
+        </div>
+      )}
+
       {/* Hidden File Input for JSON Import */}
       <input
         type="file"
@@ -188,18 +300,26 @@ export const App: React.FC = () => {
       <SystemSelector
         currentSystem={traveller.system}
         serialNumber={traveller.serialNumber}
+        customerName={traveller.customerName}
+        jobNumber={traveller.jobNumber}
+        partNumber={traveller.partNumber}
         workOrderNumber={traveller.workOrderNumber}
         operatorName={traveller.operatorName}
+        isAdmin={isAdmin}
+        theme={theme}
         onSelectSystem={handleSelectSystem}
         onOpenBarcodeModal={() => setIsBarcodeModalOpen(true)}
         onChangeOperator={handleChangeOperator}
       />
 
-      {/* Tabs Across the Top: Setup, Calibration, Final Test & Release */}
+      {/* Tabs Across the Top: Setup, Calibration, Final Test & Release, plus Admin +Add tab */}
       <WorkflowTabs
         currentStage={activeStage}
         traveller={traveller}
+        isAdmin={isAdmin}
+        theme={theme}
         onSelectStage={handleSelectStage}
+        onAddTab={handleAddTab}
       />
 
       {/* Split Window Body: Left Workflow Steps | Right Instrument Inspector & Summary */}
@@ -209,19 +329,22 @@ export const App: React.FC = () => {
           steps={traveller.steps}
           activeStage={activeStage}
           selectedStepId={selectedStepId}
+          isAdmin={isAdmin}
+          theme={theme}
           onSelectStep={handleSelectStep}
           onOpenAddStep={() => setIsConfigModalOpen(true)}
+          onReorderSteps={handleReorderSteps}
         />
 
-        {/* Right Side: Instrument Details, Progress & Calibration Audit Trail */}
+        {/* Right Side: Step Details & Calibration Audit Trail */}
         <TravellerSummary
           traveller={traveller}
           selectedStep={selectedStep}
+          theme={theme}
           onOpenStepDialog={(step) => {
             setSelectedStepId(step.id);
             setIsStepDialogOpen(true);
           }}
-          onExportJson={handleExportJson}
         />
       </div>
 
@@ -236,13 +359,16 @@ export const App: React.FC = () => {
         onUpdateMeasurement={handleUpdateMeasurement}
       />
 
-      {/* Barcode Scanner Modal Dialog */}
+      {/* Barcode & Unit Details Scanner Modal Dialog */}
       <BarcodeModal
         isOpen={isBarcodeModalOpen}
         currentSerial={traveller.serialNumber}
+        currentCustomerName={traveller.customerName}
+        currentJobNumber={traveller.jobNumber}
+        currentPartNumber={traveller.partNumber}
         currentSystem={traveller.system}
         onClose={() => setIsBarcodeModalOpen(false)}
-        onUpdateSerial={handleUpdateSerial}
+        onUpdateDetails={handleUpdateDetails}
       />
 
       {/* Configurable Workflow Modal Dialog */}

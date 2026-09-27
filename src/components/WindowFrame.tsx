@@ -1,14 +1,15 @@
 import React from 'react';
-import { Minus, Square, X, Layers, Cpu, ShieldCheck } from 'lucide-react';
+import { Minus, Square, X, Cpu, ShieldCheck, Sun, Moon } from 'lucide-react';
 import { SystemType } from '../types/traveller';
 
 interface WindowFrameProps {
   system: SystemType;
   serialNumber: string;
   version?: string;
+  theme: 'dark' | 'light';
   children: React.ReactNode;
+  onToggleTheme: () => void;
   onOpenConfig?: () => void;
-  onOpenBarcode?: () => void;
   onExportJson?: () => void;
   onImportJsonClick?: () => void;
   onNewTraveller?: () => void;
@@ -18,49 +19,86 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
   system,
   serialNumber,
   version = 'v1.1.0',
+  theme,
   children,
+  onToggleTheme,
   onOpenConfig,
-  onOpenBarcode,
   onExportJson,
   onImportJsonClick,
   onNewTraveller
 }) => {
+  const isDark = theme === 'dark';
+
   return (
-    <div className="flex flex-col h-screen w-screen bg-slate-950 text-slate-100 font-sans border border-slate-700/60 rounded-lg shadow-2xl overflow-hidden">
+    <div
+      className={`flex flex-col h-screen w-screen font-sans border rounded-lg shadow-2xl overflow-hidden transition-colors ${
+        isDark ? 'bg-slate-950 text-slate-100 border-slate-700/60' : 'bg-slate-100 text-slate-900 border-slate-300'
+      }`}
+    >
       {/* Modern Windows 11 Title Bar */}
-      <header className="h-10 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-3 select-none flex-shrink-0 z-20">
+      <header
+        className={`h-10 backdrop-blur-md border-b flex items-center justify-between px-3 select-none flex-shrink-0 z-20 transition-colors ${
+          isDark ? 'bg-slate-900/90 border-slate-800 text-slate-200' : 'bg-slate-200/90 border-slate-300 text-slate-800'
+        }`}
+      >
         <div className="flex items-center space-x-3">
           {/* App Icon */}
-          <div className="w-5 h-5 rounded bg-blue-600/90 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+          <div className="w-5 h-5 rounded bg-blue-600 flex items-center justify-center text-white text-xs font-bold shadow-xs">
             <Cpu className="w-3.5 h-3.5 text-blue-100" />
           </div>
-          <span className="text-xs font-medium tracking-tight text-slate-200">
-            Digital Traveller — <span className="font-semibold text-blue-400">{system}</span> [{serialNumber}]
+          <span className="text-xs font-medium tracking-tight">
+            Digital Traveller — <span className="font-semibold text-blue-500">{system}</span> [{serialNumber}]
           </span>
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700/60">
+          <span
+            className={`px-1.5 py-0.5 rounded text-[10px] font-mono border ${
+              isDark ? 'bg-slate-800 text-slate-400 border-slate-700/60' : 'bg-white text-slate-600 border-slate-300'
+            }`}
+          >
             {version}
-          </span>
-          <span className="hidden md:inline-flex items-center space-x-1 text-[11px] text-emerald-400/90">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Online Mode</span>
           </span>
         </div>
 
-        {/* Windows Standard Window Buttons */}
+        {/* Windows Standard Window Buttons & Theme Switch */}
         <div className="flex items-center -mr-3 h-full">
-          <button 
+          {/* Light and Dark Mode Switch Next to Minimize Window Button */}
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            className={`h-10 px-3 transition-colors flex items-center justify-center ${
+              isDark
+                ? 'text-amber-400 hover:text-amber-300 hover:bg-slate-800/80'
+                : 'text-indigo-600 hover:text-indigo-800 hover:bg-slate-300/80'
+            }`}
+          >
+            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+
+          {/* Minimize */}
+          <button
+            type="button"
             title="Minimize"
-            className="h-10 px-3.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800/80 transition-colors flex items-center justify-center"
+            className={`h-10 px-3.5 transition-colors flex items-center justify-center ${
+              isDark ? 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/80' : 'text-slate-600 hover:text-black hover:bg-slate-300/80'
+            }`}
           >
             <Minus className="w-3.5 h-3.5" />
           </button>
-          <button 
+
+          {/* Maximize / Restore */}
+          <button
+            type="button"
             title="Maximize / Restore"
-            className="h-10 px-3.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800/80 transition-colors flex items-center justify-center"
+            className={`h-10 px-3.5 transition-colors flex items-center justify-center ${
+              isDark ? 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/80' : 'text-slate-600 hover:text-black hover:bg-slate-300/80'
+            }`}
           >
             <Square className="w-3 h-3" />
           </button>
-          <button 
+
+          {/* Close */}
+          <button
+            type="button"
             title="Close Application"
             className="h-10 px-4 text-slate-400 hover:text-white hover:bg-rose-600 transition-colors flex items-center justify-center"
           >
@@ -70,70 +108,64 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
       </header>
 
       {/* Modern Windows Ribbon / Action Subheader */}
-      <nav className="h-9 bg-slate-900 border-b border-slate-800/80 px-3 flex items-center justify-between text-xs text-slate-300 flex-shrink-0">
+      <nav
+        className={`h-9 border-b px-3 flex items-center justify-between text-xs flex-shrink-0 transition-colors ${
+          isDark ? 'bg-slate-900 border-slate-800/80 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'
+        }`}
+      >
         <div className="flex items-center space-x-1">
           <button
+            type="button"
             onClick={onNewTraveller}
-            className="px-2.5 py-1 rounded hover:bg-slate-800 hover:text-white transition-colors flex items-center space-x-1 text-slate-300"
+            className={`px-2.5 py-1 rounded transition-colors flex items-center space-x-1 font-medium ${
+              isDark ? 'hover:bg-slate-800 hover:text-white text-slate-300' : 'hover:bg-slate-200 hover:text-black text-slate-700'
+            }`}
           >
             <span>+ New Traveller</span>
           </button>
-          <div className="h-3.5 w-px bg-slate-800 mx-1"></div>
+          <div className={`h-3.5 w-px mx-1 ${isDark ? 'bg-slate-800' : 'bg-slate-300'}`}></div>
           <button
+            type="button"
             onClick={onExportJson}
-            className="px-2.5 py-1 rounded hover:bg-slate-800 hover:text-blue-300 transition-colors flex items-center space-x-1.5"
+            className={`px-2.5 py-1 rounded transition-colors flex items-center space-x-1.5 font-medium ${
+              isDark ? 'hover:bg-slate-800 hover:text-blue-300' : 'hover:bg-slate-200 hover:text-blue-700'
+            }`}
             title="Export full traveller record to JSON"
           >
             <span>💾 Save JSON</span>
           </button>
           <button
+            type="button"
             onClick={onImportJsonClick}
-            className="px-2.5 py-1 rounded hover:bg-slate-800 hover:text-blue-300 transition-colors flex items-center space-x-1.5"
+            className={`px-2.5 py-1 rounded transition-colors flex items-center space-x-1.5 font-medium ${
+              isDark ? 'hover:bg-slate-800 hover:text-blue-300' : 'hover:bg-slate-200 hover:text-blue-700'
+            }`}
             title="Import existing traveller record from JSON"
           >
             <span>📂 Open JSON</span>
           </button>
-          <div className="h-3.5 w-px bg-slate-800 mx-1"></div>
+          <div className={`h-3.5 w-px mx-1 ${isDark ? 'bg-slate-800' : 'bg-slate-300'}`}></div>
           <button
-            onClick={onOpenBarcode}
-            className="px-2.5 py-1 rounded hover:bg-slate-800 hover:text-amber-300 transition-colors flex items-center space-x-1.5 text-slate-300"
-          >
-            <span>🏷️ Scan Barcode</span>
-          </button>
-          <button
+            type="button"
             onClick={onOpenConfig}
-            className="px-2.5 py-1 rounded hover:bg-slate-800 hover:text-indigo-300 transition-colors flex items-center space-x-1.5 text-slate-300"
+            className={`px-2.5 py-1 rounded transition-colors flex items-center space-x-1.5 font-medium ${
+              isDark ? 'hover:bg-slate-800 hover:text-indigo-300 text-slate-300' : 'hover:bg-slate-200 hover:text-indigo-700 text-slate-700'
+            }`}
           >
             <span>⚙️ Configure Steps</span>
           </button>
         </div>
 
-        <div className="flex items-center space-x-2 text-[11px] text-slate-400">
-          <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
+        <div className="flex items-center space-x-2 text-[11px] text-slate-500">
+          <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
           <span>ISO 9001 / Calibration Controlled</span>
         </div>
       </nav>
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden bg-slate-950">
+      {/* Main Content Area (Bottom Bar Removed completely) */}
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {children}
       </main>
-
-      {/* Windows Status Bar */}
-      <footer className="h-6 bg-slate-900 border-t border-slate-800/90 px-3 flex items-center justify-between text-[11px] text-slate-400 select-none flex-shrink-0">
-        <div className="flex items-center space-x-4">
-          <span className="flex items-center space-x-1.5">
-            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-            <span>Spectrometer: <strong className="text-slate-200">{system}</strong></span>
-          </span>
-          <span className="border-l border-slate-800 pl-3">SN: <strong className="font-mono text-slate-200">{serialNumber}</strong></span>
-          <span className="hidden sm:inline border-l border-slate-800 pl-3">Format: JSON v2.0</span>
-        </div>
-        <div className="flex items-center space-x-4 font-mono text-[10px] text-slate-400">
-          <span>Storage: Local & File Encoded</span>
-          <span className="border-l border-slate-800 pl-3">Ready</span>
-        </div>
-      </footer>
     </div>
   );
 };

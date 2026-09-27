@@ -33,6 +33,20 @@ export const StepDialog: React.FC<StepDialogProps> = ({
     setNotes(step.notes || '');
   }, [step]);
 
+  // Press Escape on keyboard to close without completing
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        handleCloseWithoutCompleting();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [notes, step]);
+
   const handleMarkComplete = () => {
     onUpdateStatus(step.id, 'Complete', notes);
     onClose();
