@@ -12,6 +12,7 @@ interface WindowFrameProps {
   onToggleTheme: () => void;
   onOpenSettings?: () => void;
   onOpenConfig?: () => void;
+  onOpenExcelHub?: () => void;
   onExportJson?: () => void;
   onImportJsonClick?: () => void;
   onNewTraveller?: () => void;
@@ -27,6 +28,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
   onToggleTheme,
   onOpenSettings,
   onOpenConfig,
+  onOpenExcelHub,
   onExportJson,
   onImportJsonClick,
   onNewTraveller
@@ -100,6 +102,20 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
               title="Open existing traveller JSON file"
             >
               <span>📂 Open</span>
+            </button>
+
+            {/* Network Share & Excel Hub */}
+            <button
+              type="button"
+              onClick={onOpenExcelHub}
+              className={`h-7 px-2.5 rounded text-xs font-medium flex items-center space-x-1 transition-colors ${
+                isDark
+                  ? 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/60'
+                  : 'text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100'
+              }`}
+              title="Network Share Excel (.xlsx) Hub"
+            >
+              <span>📊 Excel Hub</span>
             </button>
 
             {/* Configure Steps: Only visible to Admin user */}
