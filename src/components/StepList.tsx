@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { WorkflowStep, WorkflowStage, StepStatus } from '../types/traveller';
-import { CheckCircle2, Clock, CircleDashed, PlusCircle, GripVertical } from 'lucide-react';
+import { CheckCircle2, Clock, CircleDashed, PlusCircle, GripVertical, ArrowDown, ArrowUp } from 'lucide-react';
 
 interface StepListProps {
   steps: WorkflowStep[];
@@ -25,9 +25,10 @@ export const StepList: React.FC<StepListProps> = ({
 }) => {
   const currentStageSteps = steps.filter((s) => s.stage === activeStage);
   const [draggedStepId, setDraggedStepId] = useState<string | null>(null);
-  const [dragOverStepId, setDragOverStepId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ stepId: string; position: 'before' | 'after' } | null>(null);
 
   const isDark = theme === 'dark';
+  const draggedStep = steps.find((s) => s.id === draggedStepId);
 
   const getStatusBadge = (status: StepStatus) => {
     switch (status) {
@@ -92,40 +93,100 @@ export const StepList: React.FC<StepListProps> = ({
     }
   };
 
-  // Drag and drop handlers for Admin reordering
-  const handleDragStart = (e: React.DragEvent, stepId: string) => {
+  // Drag and drop handlers with custom drag preview image and target line
+  const handleDragStart = (e: React.DragEvent, step: WorkflowStep, index: number) => {
     if (!isAdmin) return;
-    setDraggedStepId(stepId);
-    e.dataTransfer.setData('text/plain', stepId);
+    setDraggedStepId(step.id);
+    e.dataTransfer.setData('text/plain', step.id);
     e.dataTransfer.effectAllowed = 'move';
+
+    // Create a custom drag ghost element
+    const dragGhost = document.createElement('div');
+    dragGhost.style.position = 'absolute';
+    dragGhost.style.top = '-9999px';
+    dragGhost.style.left = '-9999px';
+    dragGhost.style.padding = '8px 12px';
+    dragGhost.style.borderRadius = '8px';
+    dragGhost.style.background = isDark ? '#0f172a' : '#ffffff';
+    dragGhost.style.border = '2px solid #3b82f6';
+    dragGhost.style.color = isDark ? '#f8fafc' : '#0f172a';
+    dragGhost.style.fontSize = '12px';
+    dragGhost.style.fontWeight = '600';
+    dragGhost.style.boxShadow = '0 12px 24px -4px rgba(0, 0, 0, 0.45)';
+    dragGhost.style.display = 'flex';
+    dragGhost.style.alignItems = 'center';
+    dragGhost.style.gap = '8px';
+    dragGhost.style.pointerEvents = 'none';
+    dragGhost.style.zIndex = '99999';
+
+    const indexBadge = document.createElement('span');
+    indexBadge.style.background = '#2563eb';
+    indexBadge.style.color = '#ffffff';
+    indexBadge.style.borderRadius = '9999px';
+    indexBadge.style.width = '20px';
+    indexBadge.style.height = '20px';
+    indexBadge.style.display = 'inline-flex';
+    indexBadge.style.alignItems = 'center';
+    indexBadge.style.justifyContent = 'center';
+    indexBadge.style.fontSize = '10px';
+    indexBadge.style.fontWeight = 'bold';
+    indexBadge.innerText = String(index + 1);
+
+    const textSpan = document.createElement('span');
+    textSpan.innerText = `Moving: ${step.name}`;
+
+    dragGhost.appendChild(indexBadge);
+    dragGhost.appendChild(textSpan);
+    document.body.appendChild(dragGhost);
+
+    e.dataTransfer.setDragImage(dragGhost, 25, 20);
+
+    setTimeout(() => {
+      if (document.body.contains(dragGhost)) {
+        document.body.removeChild(dragGhost);
+      }
+    }, 0);
   };
 
-  const handleDragOver = (e: React.DragEvent, stepId: string) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, stepId: string) => {
     if (!isAdmin || !draggedStepId || draggedStepId === stepId) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    setDragOverStepId(stepId);
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    const position = e.clientY < midY ? 'before' : 'after';
+
+    if (!dropTarget || dropTarget.stepId !== stepId || dropTarget.position !== position) {
+      setDropTarget({ stepId, position });
+    }
   };
 
-  const handleDragLeave = () => {
-    setDragOverStepId(null);
+  const handleDragEnd = () => {
+    setDraggedStepId(null);
+    setDropTarget(null);
   };
 
   const handleDrop = (e: React.DragEvent, targetStepId: string) => {
-    if (!isAdmin || !draggedStepId || draggedStepId === targetStepId || !onReorderSteps) {
+    if (!isAdmin || !draggedStepId || !onReorderSteps) {
       setDraggedStepId(null);
-      setDragOverStepId(null);
+      setDropTarget(null);
       return;
     }
     e.preventDefault();
 
     const fromIdx = currentStageSteps.findIndex((s) => s.id === draggedStepId);
-    const toIdx = currentStageSteps.findIndex((s) => s.id === targetStepId);
+    let toIdx = currentStageSteps.findIndex((s) => s.id === targetStepId);
 
     if (fromIdx !== -1 && toIdx !== -1) {
+      const position = dropTarget?.position || 'before';
       const reordered = [...currentStageSteps];
       const [moved] = reordered.splice(fromIdx, 1);
-      reordered.splice(toIdx, 0, moved);
+
+      // Re-calculate target index after removal
+      toIdx = reordered.findIndex((s) => s.id === targetStepId);
+      const insertIdx = position === 'after' ? toIdx + 1 : toIdx;
+      reordered.splice(insertIdx, 0, moved);
 
       // Merge back into full steps list while preserving positions of other stages
       let stageIndex = 0;
@@ -142,7 +203,7 @@ export const StepList: React.FC<StepListProps> = ({
     }
 
     setDraggedStepId(null);
-    setDragOverStepId(null);
+    setDropTarget(null);
   };
 
   return (
@@ -154,7 +215,7 @@ export const StepList: React.FC<StepListProps> = ({
       {/* Header for Step List */}
       <div
         className={`p-3 border-b flex items-center justify-between transition-colors ${
-          isDark ? 'bg-slate-900/60 border-slate-800/80' : 'bg-white border-slate-200 shadow-xs'
+          isDark ? 'bg-slate-900/60 border-slate-800/80' : 'bg-[#f8fafc] border-slate-200'
         }`}
       >
         <div>
@@ -165,10 +226,6 @@ export const StepList: React.FC<StepListProps> = ({
           >
             Workflow Steps — {activeStage}
           </h2>
-          <p className="text-[11px] text-slate-500">
-            {currentStageSteps.length} procedure{currentStageSteps.length === 1 ? '' : 's'} defined
-            {isAdmin && <span className="ml-1 text-amber-500 font-medium">(Admin: Drag to reorder)</span>}
-          </p>
         </div>
 
         {/* + Add Step: Visible ONLY when user selects Admin */}
@@ -185,100 +242,138 @@ export const StepList: React.FC<StepListProps> = ({
         )}
       </div>
 
+      {/* Reordering Banner Indicator when Dragging */}
+      {isAdmin && draggedStep && (
+        <div className="bg-amber-500/10 border-b border-amber-500/30 px-3 py-1.5 flex items-center justify-between text-[11px] text-amber-400">
+          <span className="truncate">
+            Reordering: <strong>{draggedStep.name}</strong>
+          </span>
+          <span className="text-[10px] text-amber-500 font-mono">Drag above/below any step</span>
+        </div>
+      )}
+
       {/* Steps List Items */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
         {currentStageSteps.map((step, index) => {
           const isSelected = selectedStepId === step.id;
           const isComplete = step.status === 'Complete';
           const isDragged = draggedStepId === step.id;
-          const isOver = dragOverStepId === step.id;
+          const isDropBefore = dropTarget?.stepId === step.id && dropTarget?.position === 'before';
+          const isDropAfter = dropTarget?.stepId === step.id && dropTarget?.position === 'after';
 
           return (
-            <div
-              key={step.id}
-              draggable={isAdmin}
-              onDragStart={(e) => handleDragStart(e, step.id)}
-              onDragOver={(e) => handleDragOver(e, step.id)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, step.id)}
-              onClick={() => onSelectStep(step)}
-              className={`w-full text-left p-3 rounded-lg border transition-all flex items-start justify-between gap-2.5 group cursor-pointer ${
-                isDragged ? 'opacity-40 scale-98' : ''
-              } ${isOver ? 'border-amber-400 border-2' : ''} ${
-                isSelected
-                  ? isDark
-                    ? 'bg-blue-950/40 border-blue-500/80 shadow-md ring-1 ring-blue-500/40'
-                    : 'bg-blue-50 border-blue-400 shadow-md ring-1 ring-blue-400/40'
-                  : isComplete
-                  ? isDark
-                    ? 'bg-slate-900/40 border-slate-800/80 hover:bg-slate-800/40 hover:border-slate-700'
-                    : 'bg-white border-slate-200 hover:bg-slate-100/60'
-                  : isDark
-                  ? 'bg-slate-900/70 border-slate-800 hover:bg-slate-800/60 hover:border-slate-700'
-                  : 'bg-white border-slate-200 hover:bg-slate-100/80'
-              }`}
-            >
-              <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                {/* Admin drag grip handle */}
-                {isAdmin && (
-                  <div
-                    className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-amber-400 p-0.5 mt-0.5"
-                    title="Click and drag to reorder"
-                  >
-                    <GripVertical className="w-3.5 h-3.5" />
+            <React.Fragment key={step.id}>
+              {/* Drop Insertion Line Before */}
+              {isDropBefore && (
+                <div className="h-2 flex items-center px-2 py-0.5 animate-in fade-in duration-75">
+                  <div className="h-0.5 w-full bg-blue-500 shadow-[0_0_8px_#3b82f6] rounded flex items-center justify-between">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 -ml-1"></span>
+                    <span className="text-[9px] font-mono font-bold text-blue-400 bg-slate-900 px-1 rounded">
+                      Insert Here
+                    </span>
+                    <span className="w-2 h-2 rounded-full bg-blue-500 -mr-1"></span>
                   </div>
-                )}
-
-                {/* Step index badge */}
-                <div
-                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono font-bold mt-0.5 flex-shrink-0 ${
-                    isComplete
-                      ? isDark
-                        ? 'bg-emerald-900/60 text-emerald-300 border border-emerald-700/60'
-                        : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                      : isSelected
-                      ? 'bg-blue-600 text-white'
-                      : isDark
-                      ? 'bg-slate-800 text-slate-400 border border-slate-700'
-                      : 'bg-slate-200 text-slate-600 border border-slate-300'
-                  }`}
-                >
-                  {index + 1}
                 </div>
+              )}
 
-                <div className="min-w-0 flex-1">
+              <div
+                draggable={isAdmin}
+                onDragStart={(e) => handleDragStart(e, step, index)}
+                onDragOver={(e) => handleDragOver(e, step.id)}
+                onDragEnd={handleDragEnd}
+                onDrop={(e) => handleDrop(e, step.id)}
+                onClick={() => onSelectStep(step)}
+                className={`w-full text-left p-3 rounded-lg border transition-all flex items-start justify-between gap-2.5 group cursor-pointer ${
+                  isDragged ? 'opacity-30 border-dashed border-amber-400 scale-[0.98]' : ''
+                } ${
+                  isSelected
+                    ? isDark
+                      ? 'bg-blue-950/40 border-blue-500/80 shadow-md ring-1 ring-blue-500/40'
+                      : 'bg-blue-50 border-blue-400 shadow-md ring-1 ring-blue-400/40'
+                    : isComplete
+                    ? isDark
+                      ? 'bg-slate-900/40 border-slate-800/80 hover:bg-slate-800/40 hover:border-slate-700'
+                      : 'bg-white border-slate-200 hover:bg-slate-100/60'
+                    : isDark
+                    ? 'bg-slate-900/70 border-slate-800 hover:bg-slate-800/60 hover:border-slate-700'
+                    : 'bg-white border-slate-200 hover:bg-slate-100/80'
+                }`}
+              >
+                <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                  {/* Admin drag grip handle */}
+                  {isAdmin && (
+                    <div
+                      className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-amber-400 p-0.5 mt-0.5 flex-shrink-0"
+                      title="Click and drag to reorder"
+                    >
+                      <GripVertical className="w-4 h-4" />
+                    </div>
+                  )}
+
+                  {/* Step index badge */}
                   <div
-                    className={`text-xs font-semibold transition-colors truncate ${
-                      isDark
-                        ? 'text-slate-200 group-hover:text-blue-300'
-                        : 'text-slate-800 group-hover:text-blue-600'
+                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono font-bold mt-0.5 flex-shrink-0 ${
+                      isComplete
+                        ? isDark
+                          ? 'bg-emerald-900/60 text-emerald-300 border border-emerald-700/60'
+                          : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : isSelected
+                        ? 'bg-blue-600 text-white'
+                        : isDark
+                        ? 'bg-slate-800 text-slate-400 border border-slate-700'
+                        : 'bg-slate-200 text-slate-600 border border-slate-300'
                     }`}
                   >
-                    {step.name}
+                    {index + 1}
                   </div>
 
-                  <div className="mt-1 flex items-center gap-2">
-                    {getStatusBadge(step.status)}
-                  </div>
-
-                  {/* Completion Timestamp */}
-                  <div className="mt-1.5 text-[10px] font-mono flex items-center gap-1 text-slate-500">
-                    <span>Completed:</span>
-                    <span
-                      className={
-                        step.completedAt
-                          ? isDark
-                            ? 'text-slate-300 font-medium'
-                            : 'text-slate-700 font-medium'
-                          : 'text-slate-400 italic'
-                      }
+                  <div className="min-w-0 flex-1">
+                    <div
+                      className={`text-xs font-semibold transition-colors truncate ${
+                        isDark
+                          ? 'text-slate-200 group-hover:text-blue-300'
+                          : 'text-slate-800 group-hover:text-blue-600'
+                      }`}
                     >
-                      {formatTimestamp(step.completedAt)}
-                    </span>
+                      {step.name}
+                    </div>
+
+                    <div className="mt-1 flex items-center gap-2">
+                      {getStatusBadge(step.status)}
+                    </div>
+
+                    {/* Completion Timestamp */}
+                    <div className="mt-1.5 text-[10px] font-mono flex items-center gap-1 text-slate-500">
+                      <span>Completed:</span>
+                      <span
+                        className={
+                          step.completedAt
+                            ? isDark
+                              ? 'text-slate-300 font-medium'
+                              : 'text-slate-700 font-medium'
+                            : 'text-slate-400 italic'
+                        }
+                      >
+                        {formatTimestamp(step.completedAt)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+
+              {/* Drop Insertion Line After */}
+              {isDropAfter && (
+                <div className="h-2 flex items-center px-2 py-0.5 animate-in fade-in duration-75">
+                  <div className="h-0.5 w-full bg-blue-500 shadow-[0_0_8px_#3b82f6] rounded flex items-center justify-between">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 -ml-1"></span>
+                    <span className="text-[9px] font-mono font-bold text-blue-400 bg-slate-900 px-1 rounded">
+                      Insert Here
+                    </span>
+                    <span className="w-2 h-2 rounded-full bg-blue-500 -mr-1"></span>
+                  </div>
+                </div>
+              )}
+            </React.Fragment>
           );
         })}
 

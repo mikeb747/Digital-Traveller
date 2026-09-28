@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { WorkflowStage, TravellerRecord } from '../types/traveller';
-import { X, Plus, Trash2, Settings2, CheckCircle2 } from 'lucide-react';
+import { X, Plus, Settings2, CheckCircle2, Download } from 'lucide-react';
+import { WorkflowTemplateService } from '../services/workflowTemplateService';
 
 interface WorkflowConfigModalProps {
   isOpen: boolean;
@@ -17,7 +18,10 @@ export const WorkflowConfigModal: React.FC<WorkflowConfigModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const [targetStage, setTargetStage] = useState<WorkflowStage>('Setup');
+  const defaultStages = ['Setup', 'Calibration', 'Final Test & Release'];
+  const availableStages = traveller.stages && traveller.stages.length > 0 ? traveller.stages : defaultStages;
+
+  const [targetStage, setTargetStage] = useState<WorkflowStage>(availableStages[0] || 'Setup');
   const [stepName, setStepName] = useState('');
   const [instructions, setInstructions] = useState('');
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -27,7 +31,7 @@ export const WorkflowConfigModal: React.FC<WorkflowConfigModalProps> = ({
     if (!stepName.trim()) return;
 
     onAddStep(targetStage, stepName.trim(), instructions.trim());
-    setFeedback(`Step "${stepName}" added successfully to ${targetStage}!`);
+    setFeedback(`Step "${stepName}" added and persisted to ${targetStage}!`);
     setStepName('');
     setInstructions('');
 
@@ -36,7 +40,11 @@ export const WorkflowConfigModal: React.FC<WorkflowConfigModalProps> = ({
     }, 3000);
   };
 
-  const stages: WorkflowStage[] = ['Setup', 'Calibration', 'Final Test & Release'];
+  const handleExportTemplate = () => {
+    WorkflowTemplateService.exportTemplateToFile(traveller.system);
+    setFeedback(`Exported template file for ${traveller.system}`);
+    setTimeout(() => setFeedback(null), 3000);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
@@ -45,10 +53,11 @@ export const WorkflowConfigModal: React.FC<WorkflowConfigModalProps> = ({
           <div className="flex items-center space-x-2">
             <Settings2 className="w-4 h-4 text-indigo-400" />
             <h3 className="text-xs font-semibold text-slate-100 uppercase tracking-wider">
-              Workflow Configuration Editor
+              Workflow Configuration Editor — {traveller.system}
             </h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="w-6 h-6 rounded text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center"
           >
@@ -57,8 +66,19 @@ export const WorkflowConfigModal: React.FC<WorkflowConfigModalProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs text-slate-300">
-          <div className="bg-slate-950/60 p-3 rounded-lg border border-slate-800 text-[11px] text-slate-400">
-            Define custom manufacturing, inspection, or quality validation procedures for the current active traveller. All new steps will be tracked in the JSON data model and audit history.
+          <div className="bg-slate-950/60 p-3 rounded-lg border border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+            <span>
+              All steps and tabs added here or in the workflow are automatically saved to persistent storage.
+            </span>
+            <button
+              type="button"
+              onClick={handleExportTemplate}
+              className="ml-3 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-blue-400 text-xs font-medium flex items-center space-x-1 border border-slate-700 flex-shrink-0"
+              title="Download workflow template file as JSON"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export Template</span>
+            </button>
           </div>
 
           {feedback && (
@@ -71,15 +91,15 @@ export const WorkflowConfigModal: React.FC<WorkflowConfigModalProps> = ({
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-200 mb-1">
-                Target Workflow Stage
+                Target Workflow Stage / Tab
               </label>
-              <div className="grid grid-cols-3 gap-2">
-                {stages.map((stage) => (
+              <div className="flex flex-wrap gap-1.5">
+                {availableStages.map((stage) => (
                   <button
                     type="button"
                     key={stage}
                     onClick={() => setTargetStage(stage)}
-                    className={`py-2 px-3 rounded-lg text-xs font-medium border text-center transition-all ${
+                    className={`py-1.5 px-3 rounded-lg text-xs font-medium border text-center transition-all ${
                       targetStage === stage
                         ? 'bg-blue-600 text-white border-blue-500 shadow'
                         : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -139,11 +159,11 @@ export const WorkflowConfigModal: React.FC<WorkflowConfigModalProps> = ({
           {/* Current Stage Steps Overview */}
           <div className="mt-4 pt-4 border-t border-slate-800">
             <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-              Existing Steps in {targetStage} ({traveller.steps.filter(s => s.stage === targetStage).length})
+              Existing Steps in {targetStage} ({traveller.steps.filter((s) => s.stage === targetStage).length})
             </h4>
             <div className="max-h-36 overflow-y-auto space-y-1">
               {traveller.steps
-                .filter(s => s.stage === targetStage)
+                .filter((s) => s.stage === targetStage)
                 .map((step, idx) => (
                   <div
                     key={step.id}

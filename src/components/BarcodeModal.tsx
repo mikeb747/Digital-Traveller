@@ -44,7 +44,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
     setPartNumber(currentPartNumber || '');
   }, [currentSerial, currentCustomerName, currentJobNumber, currentPartNumber, isOpen]);
 
-  const prefix = currentSystem.toUpperCase().slice(0, 3);
+  const prefix = currentSystem.toLowerCase() === 'invia' ? 'INV' : currentSystem.toUpperCase().slice(0, 3);
 
   const handleSimulateScan = () => {
     setIsScanningSim(true);
@@ -58,7 +58,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
   const handleApply = (e: React.FormEvent) => {
     e.preventDefault();
     onUpdateDetails({
-      serialNumber: inputSerial.trim() || currentSerial,
+      serialNumber: inputSerial.trim(),
       customerName: customerName.trim(),
       jobNumber: jobNumber.trim(),
       partNumber: partNumber.trim()

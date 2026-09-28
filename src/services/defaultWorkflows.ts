@@ -1,8 +1,8 @@
 import { SystemProfile, SystemType } from '../types/traveller';
 
 export const SYSTEM_PROFILES: Record<SystemType, SystemProfile> = {
-  InVia: {
-    id: 'InVia',
+  inVia: {
+    id: 'inVia',
     displayName: 'inVia™ Confocal Raman Microscope',
     tagline: 'High-performance research spectrometer',
     description: 'Precision automated Raman microscope with multi-laser kinematic grating carousels.',

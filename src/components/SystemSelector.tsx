@@ -1,7 +1,7 @@
 import React from 'react';
 import { SystemType } from '../types/traveller';
 import { SYSTEM_PROFILES } from '../services/defaultWorkflows';
-import { SlidersHorizontal, CheckCircle2, User, Briefcase, Tag, Scan } from 'lucide-react';
+import { SlidersHorizontal, CheckCircle2, User, Briefcase, Tag } from 'lucide-react';
 import { TechSelector } from './TechSelector';
 
 interface SystemSelectorProps {
@@ -33,8 +33,9 @@ export const SystemSelector: React.FC<SystemSelectorProps> = ({
   onOpenBarcodeModal,
   onChangeOperator
 }) => {
-  const profile = SYSTEM_PROFILES[currentSystem] || SYSTEM_PROFILES['InVia'];
-  const systems: SystemType[] = ['InVia', 'Virsa', 'inLux'];
+  const profile = SYSTEM_PROFILES[currentSystem] || SYSTEM_PROFILES['inVia'];
+  // All references to inVia have lowercase 'i'
+  const systems: SystemType[] = ['inVia', 'Virsa', 'inLux'];
   const isDark = theme === 'dark';
 
   return (
@@ -85,35 +86,28 @@ export const SystemSelector: React.FC<SystemSelectorProps> = ({
         </div>
       </div>
 
-      {/* Right: Hardware Identification, Scanner trigger & Tech Dropdown */}
+      {/* Right: Hardware Identification & Tech Dropdown (Scan Barcode / Serial button removed, handled in Enter S/N box) */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 text-xs">
-        {/* Scan Barcode / Serial Scanner Button */}
-        <button
-          type="button"
-          onClick={onOpenBarcodeModal}
-          className={`flex items-center space-x-1.5 px-3 py-1 rounded border font-semibold text-xs shadow-xs transition-all ${
-            isDark
-              ? 'bg-slate-950/90 border-slate-700/80 hover:border-amber-400/80 hover:bg-slate-800/80 text-amber-300'
-              : 'bg-white border-slate-300 hover:border-amber-500 hover:bg-amber-50/50 text-amber-700'
-          }`}
-          title="Scan barcode or edit Customer, Job, and Part Number"
-        >
-          <Scan className="w-3.5 h-3.5 text-amber-500" />
-          <span>Scan Barcode / Serial</span>
-        </button>
-
-        {/* Serial Number */}
+        {/* System Serial Number (Blank until entered - click to open barcode / serial / details modal) */}
         <div
           onClick={onOpenBarcodeModal}
           className={`flex items-center rounded border px-2.5 py-1 cursor-pointer transition-colors ${
-            isDark
+            !serialNumber
+              ? isDark
+                ? 'bg-amber-950/20 border-amber-800/60 hover:border-amber-500'
+                : 'bg-amber-50 border-amber-300 hover:border-amber-500'
+              : isDark
               ? 'bg-slate-950/80 border-slate-800 hover:border-slate-700'
               : 'bg-white border-slate-300 hover:border-slate-400'
           }`}
-          title="Click to change serial number or scan"
+          title={serialNumber ? 'Click to edit Serial Number, Customer, Job, and Part Number' : 'Click to enter System S/N and details'}
         >
           <span className="text-slate-400 text-[11px] mr-1.5 font-medium">S/N:</span>
-          <span className="font-mono font-semibold text-blue-500">{serialNumber}</span>
+          {serialNumber ? (
+            <span className="font-mono font-semibold text-blue-500">{serialNumber}</span>
+          ) : (
+            <span className="font-mono text-[11px] text-amber-500 italic">[Enter S/N]</span>
+          )}
         </div>
 
         {/* Customer Name (if defined) */}

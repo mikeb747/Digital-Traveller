@@ -10,6 +10,9 @@ import { StepDialog } from './components/StepDialog';
 import { TravellerSummary } from './components/TravellerSummary';
 import { BarcodeModal } from './components/BarcodeModal';
 import { WorkflowConfigModal } from './components/WorkflowConfigModal';
+import { ConfirmModal } from './components/ConfirmModal';
+import { AdminSettingsModal } from './components/AdminSettingsModal';
+import { WorkflowTemplateService } from './services/workflowTemplateService';
 
 export const App: React.FC = () => {
   // Theme state: 'dark' | 'light'
@@ -33,7 +36,12 @@ export const App: React.FC = () => {
   const [isStepDialogOpen, setIsStepDialogOpen] = useState(false);
   const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
+
+  // Confirmation modals state
+  const [isNewTravellerConfirmOpen, setIsNewTravellerConfirmOpen] = useState(false);
+  const [pendingSystemSwitch, setPendingSystemSwitch] = useState<SystemType | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -74,6 +82,9 @@ export const App: React.FC = () => {
 
   // Admin feature: Add a new blank tab
   const handleAddTab = (tabName: string) => {
+    // Persist to template file store
+    WorkflowTemplateService.addTabToTemplate(traveller.system, tabName);
+
     const existingStages = traveller.stages || ['Setup', 'Calibration', 'Final Test & Release'];
     if (!existingStages.includes(tabName)) {
       setTraveller((prev) => ({
@@ -84,7 +95,7 @@ export const App: React.FC = () => {
         auditLog: [
           {
             timestamp: new Date().toISOString(),
-            action: `Admin created new tab "${tabName}"`,
+            action: `Admin created new tab "${tabName}" (Saved to template)`,
             user: prev.operatorName
           },
           ...prev.auditLog
@@ -92,23 +103,40 @@ export const App: React.FC = () => {
       }));
       setActiveStage(tabName);
       setSelectedStepId(null);
-      setNotification(`Created tab "${tabName}"`);
+      setNotification(`Created tab "${tabName}" (Persisted)`);
     } else {
       setActiveStage(tabName);
     }
   };
 
-  // Handle system selection (InVia / Virsa / inLux) seamlessly without blocking prompts
-  const handleSelectSystem = (newSystem: SystemType) => {
+  // Request system switch: opens confirmation box with reset warning
+  const handleRequestSystemSwitch = (newSystem: SystemType) => {
     if (newSystem === traveller.system) return;
+    setPendingSystemSwitch(newSystem);
+  };
 
-    StorageService.saveTraveller(traveller);
-    const targetTraveller = StorageService.loadTravellerForSystem(newSystem);
-    setTraveller(targetTraveller);
-    setActiveStage(targetTraveller.activeStage || 'Setup');
+  // Confirm system switch: resets workflow for the selected system
+  const handleConfirmSystemSwitch = () => {
+    if (!pendingSystemSwitch) return;
+
+    const newSystem = pendingSystemSwitch;
+    // Create new traveller with reset workflow and blank serial
+    const newRec = StorageService.createNewTraveller(
+      newSystem,
+      '',
+      traveller.customerName,
+      traveller.jobNumber,
+      traveller.partNumber,
+      traveller.operatorName
+    );
+
+    StorageService.saveTraveller(newRec);
+    setTraveller(newRec);
+    setActiveStage(newRec.activeStage || 'Setup');
     setSelectedStepId(null);
     setIsStepDialogOpen(false);
-    setNotification(`Switched system to ${newSystem}`);
+    setPendingSystemSwitch(null);
+    setNotification(`Switched to ${newSystem}. Workflow reset.`);
   };
 
   // Handle step selection from list: ONLY select the step, DO NOT open dialog
@@ -152,8 +180,11 @@ export const App: React.FC = () => {
 
   // Handle new custom step addition (configurable workflows)
   const handleAddCustomStep = (stage: WorkflowStage, stepName: string, instructions: string) => {
+    // Persist to template file store
+    WorkflowTemplateService.addStepToTemplate(traveller.system, stage, stepName, [instructions]);
     const updated = WorkflowService.addStep(traveller, stage, stepName, instructions);
     setTraveller(updated);
+    setNotification(`Step "${stepName}" added and persisted to template`);
   };
 
   // Handle operator change & Admin mode toggle
@@ -179,6 +210,8 @@ export const App: React.FC = () => {
 
   // Handle reordering steps (Admin drag and drop)
   const handleReorderSteps = (reorderedSteps: WorkflowStep[]) => {
+    // Persist new ordering to template file store
+    WorkflowTemplateService.updateStepsOrderInTemplate(traveller.system, reorderedSteps);
     setTraveller((prev) => ({
       ...prev,
       steps: reorderedSteps,
@@ -203,7 +236,7 @@ export const App: React.FC = () => {
       auditLog: [
         {
           timestamp: new Date().toISOString(),
-          action: `Unit details updated: S/N ${details.serialNumber}${
+          action: `Unit details updated: S/N ${details.serialNumber || 'Blank'}${
             details.customerName ? ` | Customer: ${details.customerName}` : ''
           }${details.jobNumber ? ` | Job: ${details.jobNumber}` : ''}${
             details.partNumber ? ` | Part: ${details.partNumber}` : ''
@@ -216,11 +249,16 @@ export const App: React.FC = () => {
     setNotification('Hardware & unit details updated');
   };
 
-  // Handle New Traveller creation
-  const handleCreateNewTraveller = () => {
+  // Handle New Traveller click: opens confirmation modal with reset warning
+  const handleNewTravellerClick = () => {
+    setIsNewTravellerConfirmOpen(true);
+  };
+
+  // Confirm New Traveller creation: resets workflow
+  const handleConfirmNewTraveller = () => {
     const newRec = StorageService.createNewTraveller(
       traveller.system,
-      undefined,
+      '', // Blank S/N until entered
       traveller.customerName,
       traveller.jobNumber,
       traveller.partNumber,
@@ -230,13 +268,14 @@ export const App: React.FC = () => {
     setSelectedStepId(null);
     setIsStepDialogOpen(false);
     setActiveStage('Setup');
-    setNotification(`New digital traveller record created for ${traveller.system}`);
+    setIsNewTravellerConfirmOpen(false);
+    setNotification(`New digital traveller created for ${traveller.system}. Workflow reset.`);
   };
 
   // Handle Export to JSON
   const handleExportJson = () => {
     StorageService.exportToJson(traveller);
-    setNotification('JSON record exported successfully');
+    setNotification('Saved traveller JSON file');
   };
 
   // Trigger file dialog for importing JSON
@@ -260,12 +299,34 @@ export const App: React.FC = () => {
         setTraveller(importedRecord);
         setActiveStage(importedRecord.activeStage || 'Setup');
         setSelectedStepId(null);
-        setNotification(`Imported traveller: ${importedRecord.system} (${importedRecord.serialNumber})`);
+        setNotification(`Opened traveller: ${importedRecord.system} (${importedRecord.serialNumber || 'Unassigned'})`);
       } catch (err: any) {
-        setNotification(`Import failed: ${err.message || 'Invalid format'}`);
+        setNotification(`Open failed: ${err.message || 'Invalid format'}`);
       }
     };
     reader.readAsText(file);
+  };
+
+  // Handle applied workflow template from Admin Settings (Load Workflows)
+  const handleApplyWorkflows = (newStages: string[], newSteps: WorkflowStep[]) => {
+    setTraveller((prev) => ({
+      ...prev,
+      stages: newStages,
+      steps: newSteps,
+      activeStage: newStages[0] || 'Setup',
+      updatedAt: new Date().toISOString(),
+      auditLog: [
+        {
+          timestamp: new Date().toISOString(),
+          action: `Admin loaded workflow template (${newSteps.length} steps across ${newStages.length} tabs)`,
+          user: prev.operatorName
+        },
+        ...prev.auditLog
+      ]
+    }));
+    setActiveStage(newStages[0] || 'Setup');
+    setSelectedStepId(null);
+    setNotification(`Workflows loaded: ${newSteps.length} steps across ${newStages.length} tabs`);
   };
 
   return (
@@ -273,11 +334,13 @@ export const App: React.FC = () => {
       system={traveller.system}
       serialNumber={traveller.serialNumber}
       theme={theme}
+      isAdmin={isAdmin}
       onToggleTheme={handleToggleTheme}
+      onOpenSettings={() => setIsAdminSettingsOpen(true)}
       onOpenConfig={() => setIsConfigModalOpen(true)}
       onExportJson={handleExportJson}
       onImportJsonClick={handleImportJsonClick}
-      onNewTraveller={handleCreateNewTraveller}
+      onNewTraveller={handleNewTravellerClick}
     >
       {/* Toast Notification */}
       {notification && (
@@ -307,7 +370,7 @@ export const App: React.FC = () => {
         operatorName={traveller.operatorName}
         isAdmin={isAdmin}
         theme={theme}
-        onSelectSystem={handleSelectSystem}
+        onSelectSystem={handleRequestSystemSwitch}
         onOpenBarcodeModal={() => setIsBarcodeModalOpen(true)}
         onChangeOperator={handleChangeOperator}
       />
@@ -377,6 +440,42 @@ export const App: React.FC = () => {
         traveller={traveller}
         onClose={() => setIsConfigModalOpen(false)}
         onAddStep={handleAddCustomStep}
+      />
+
+      {/* Admin Settings Modal (Save Workflows & Load Workflows) */}
+      <AdminSettingsModal
+        isOpen={isAdminSettingsOpen}
+        system={traveller.system}
+        traveller={traveller}
+        theme={theme}
+        onClose={() => setIsAdminSettingsOpen(false)}
+        onApplyWorkflows={handleApplyWorkflows}
+      />
+
+      {/* Confirmation Modal for +New Traveller */}
+      <ConfirmModal
+        isOpen={isNewTravellerConfirmOpen}
+        title="Start New Traveller"
+        message={`Are you sure you want to create a new Digital Traveller for ${traveller.system}? The current workflow procedures, checklist completions, and measurement values will be reset.`}
+        confirmText="Confirm & Reset Workflow"
+        cancelText="Cancel"
+        isDestructive={true}
+        theme={theme}
+        onConfirm={handleConfirmNewTraveller}
+        onCancel={() => setIsNewTravellerConfirmOpen(false)}
+      />
+
+      {/* Confirmation Modal for Switching System */}
+      <ConfirmModal
+        isOpen={pendingSystemSwitch !== null}
+        title={`Switch System to ${pendingSystemSwitch}`}
+        message={`Are you sure you want to switch to ${pendingSystemSwitch}? The active workflow procedures and calibration checklist will be reset for the ${pendingSystemSwitch} model.`}
+        confirmText={`Switch to ${pendingSystemSwitch}`}
+        cancelText="Cancel"
+        isDestructive={true}
+        theme={theme}
+        onConfirm={handleConfirmSystemSwitch}
+        onCancel={() => setPendingSystemSwitch(null)}
       />
     </WindowFrame>
   );

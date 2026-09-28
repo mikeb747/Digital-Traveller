@@ -1,5 +1,5 @@
 import React from 'react';
-import { Minus, Square, X, Cpu, ShieldCheck, Sun, Moon } from 'lucide-react';
+import { Minus, Square, X, Cpu, Sun, Moon, Settings } from 'lucide-react';
 import { SystemType } from '../types/traveller';
 
 interface WindowFrameProps {
@@ -7,8 +7,10 @@ interface WindowFrameProps {
   serialNumber: string;
   version?: string;
   theme: 'dark' | 'light';
+  isAdmin?: boolean;
   children: React.ReactNode;
   onToggleTheme: () => void;
+  onOpenSettings?: () => void;
   onOpenConfig?: () => void;
   onExportJson?: () => void;
   onImportJsonClick?: () => void;
@@ -20,8 +22,10 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
   serialNumber,
   version = 'v1.1.0',
   theme,
+  isAdmin = false,
   children,
   onToggleTheme,
+  onOpenSettings,
   onOpenConfig,
   onExportJson,
   onImportJsonClick,
@@ -35,32 +39,104 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
         isDark ? 'bg-slate-950 text-slate-100 border-slate-700/60' : 'bg-slate-100 text-slate-900 border-slate-300'
       }`}
     >
-      {/* Modern Windows 11 Title Bar */}
+      {/* Modern Windows 11 Title Bar with integrated actions */}
       <header
         className={`h-10 backdrop-blur-md border-b flex items-center justify-between px-3 select-none flex-shrink-0 z-20 transition-colors ${
           isDark ? 'bg-slate-900/90 border-slate-800 text-slate-200' : 'bg-slate-200/90 border-slate-300 text-slate-800'
         }`}
       >
-        <div className="flex items-center space-x-3">
+        {/* Left Section: App Icon, System Name, and Top Bar Actions (+New Traveller, Save, Open) */}
+        <div className="flex items-center space-x-2 sm:space-x-3 overflow-hidden">
           {/* App Icon */}
-          <div className="w-5 h-5 rounded bg-blue-600 flex items-center justify-center text-white text-xs font-bold shadow-xs">
+          <div className="w-5 h-5 rounded bg-blue-600 flex items-center justify-center text-white text-xs font-bold shadow-xs flex-shrink-0">
             <Cpu className="w-3.5 h-3.5 text-blue-100" />
           </div>
-          <span className="text-xs font-medium tracking-tight">
-            Digital Traveller — <span className="font-semibold text-blue-500">{system}</span> [{serialNumber}]
+
+          <span className="text-xs font-medium tracking-tight whitespace-nowrap flex-shrink-0">
+            Digital Traveller — <span className="font-semibold text-blue-500">{system}</span>{' '}
+            <span className="font-mono text-slate-400">
+              [{serialNumber ? serialNumber : 'Unassigned S/N'}]
+            </span>
           </span>
-          <span
-            className={`px-1.5 py-0.5 rounded text-[10px] font-mono border ${
-              isDark ? 'bg-slate-800 text-slate-400 border-slate-700/60' : 'bg-white text-slate-600 border-slate-300'
-            }`}
-          >
-            {version}
-          </span>
+
+          <div className={`h-4 w-px mx-1 flex-shrink-0 ${isDark ? 'bg-slate-700/70' : 'bg-slate-300'}`}></div>
+
+          {/* Action Buttons moved up to top bar starting roughly where version number was */}
+          <div className="flex items-center space-x-1 flex-shrink-0">
+            <button
+              type="button"
+              onClick={onNewTraveller}
+              className={`h-7 px-2.5 rounded text-xs font-medium flex items-center space-x-1 transition-colors ${
+                isDark
+                  ? 'text-slate-300 hover:text-white hover:bg-slate-800/90'
+                  : 'text-slate-700 hover:text-black hover:bg-slate-300/80'
+              }`}
+              title="Create new digital traveller"
+            >
+              <span>+ New Traveller</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onExportJson}
+              className={`h-7 px-2.5 rounded text-xs font-medium flex items-center space-x-1 transition-colors ${
+                isDark
+                  ? 'text-slate-300 hover:text-blue-300 hover:bg-slate-800/90'
+                  : 'text-slate-700 hover:text-blue-700 hover:bg-slate-300/80'
+              }`}
+              title="Save traveller JSON file"
+            >
+              <span>💾 Save</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onImportJsonClick}
+              className={`h-7 px-2.5 rounded text-xs font-medium flex items-center space-x-1 transition-colors ${
+                isDark
+                  ? 'text-slate-300 hover:text-blue-300 hover:bg-slate-800/90'
+                  : 'text-slate-700 hover:text-blue-700 hover:bg-slate-300/80'
+              }`}
+              title="Open existing traveller JSON file"
+            >
+              <span>📂 Open</span>
+            </button>
+
+            {/* Configure Steps: Only visible to Admin user */}
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={onOpenConfig}
+                className={`h-7 px-2.5 rounded text-xs font-medium flex items-center space-x-1 text-amber-500 hover:text-amber-400 transition-colors ${
+                  isDark ? 'hover:bg-slate-800/90' : 'hover:bg-slate-300/80'
+                }`}
+                title="Admin: Configure workflow steps"
+              >
+                <span>⚙️ Configure Steps</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Windows Standard Window Buttons & Theme Switch */}
-        <div className="flex items-center -mr-3 h-full">
-          {/* Light and Dark Mode Switch Next to Minimize Window Button */}
+        <div className="flex items-center -mr-3 h-full flex-shrink-0">
+          {/* Settings button, visible only to Admin user, next to dark mode button */}
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              title="Workflow & System Settings (Admin)"
+              className={`h-10 px-2.5 transition-colors flex items-center justify-center ${
+                isDark
+                  ? 'text-amber-400 hover:text-amber-300 hover:bg-slate-800/80'
+                  : 'text-amber-600 hover:text-amber-800 hover:bg-slate-300/80'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Light and Dark Mode Switch */}
           <button
             type="button"
             onClick={onToggleTheme}
@@ -107,64 +183,14 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
         </div>
       </header>
 
-      {/* Modern Windows Ribbon / Action Subheader */}
-      <nav
-        className={`h-9 border-b px-3 flex items-center justify-between text-xs flex-shrink-0 transition-colors ${
-          isDark ? 'bg-slate-900 border-slate-800/80 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'
-        }`}
-      >
-        <div className="flex items-center space-x-1">
-          <button
-            type="button"
-            onClick={onNewTraveller}
-            className={`px-2.5 py-1 rounded transition-colors flex items-center space-x-1 font-medium ${
-              isDark ? 'hover:bg-slate-800 hover:text-white text-slate-300' : 'hover:bg-slate-200 hover:text-black text-slate-700'
-            }`}
-          >
-            <span>+ New Traveller</span>
-          </button>
-          <div className={`h-3.5 w-px mx-1 ${isDark ? 'bg-slate-800' : 'bg-slate-300'}`}></div>
-          <button
-            type="button"
-            onClick={onExportJson}
-            className={`px-2.5 py-1 rounded transition-colors flex items-center space-x-1.5 font-medium ${
-              isDark ? 'hover:bg-slate-800 hover:text-blue-300' : 'hover:bg-slate-200 hover:text-blue-700'
-            }`}
-            title="Export full traveller record to JSON"
-          >
-            <span>💾 Save JSON</span>
-          </button>
-          <button
-            type="button"
-            onClick={onImportJsonClick}
-            className={`px-2.5 py-1 rounded transition-colors flex items-center space-x-1.5 font-medium ${
-              isDark ? 'hover:bg-slate-800 hover:text-blue-300' : 'hover:bg-slate-200 hover:text-blue-700'
-            }`}
-            title="Import existing traveller record from JSON"
-          >
-            <span>📂 Open JSON</span>
-          </button>
-          <div className={`h-3.5 w-px mx-1 ${isDark ? 'bg-slate-800' : 'bg-slate-300'}`}></div>
-          <button
-            type="button"
-            onClick={onOpenConfig}
-            className={`px-2.5 py-1 rounded transition-colors flex items-center space-x-1.5 font-medium ${
-              isDark ? 'hover:bg-slate-800 hover:text-indigo-300 text-slate-300' : 'hover:bg-slate-200 hover:text-indigo-700 text-slate-700'
-            }`}
-          >
-            <span>⚙️ Configure Steps</span>
-          </button>
-        </div>
-
-        <div className="flex items-center space-x-2 text-[11px] text-slate-500">
-          <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
-          <span>ISO 9001 / Calibration Controlled</span>
-        </div>
-      </nav>
-
-      {/* Main Content Area (Bottom Bar Removed completely) */}
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      {/* Main Content Area (Ribbon removed completely, shifting everything up) */}
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
         {children}
+
+        {/* Version number positioned in bottom right in low-contrasting font without a box */}
+        <div className="absolute bottom-1 right-3 text-[10px] font-mono pointer-events-none select-none z-10 text-slate-500/35">
+          {version}
+        </div>
       </main>
     </div>
   );
