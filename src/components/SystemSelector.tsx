@@ -2,7 +2,7 @@ import React from 'react';
 import { SystemType } from '../types/traveller';
 import { SYSTEM_PROFILES } from '../services/defaultWorkflows';
 import { SystemRegistryService } from '../services/systemRegistryService';
-import { SlidersHorizontal, CheckCircle2, User, Briefcase, Tag } from 'lucide-react';
+import { SlidersHorizontal, CheckCircle2, User, Briefcase, Tag, KeyRound } from 'lucide-react';
 import { TechSelector } from './TechSelector';
 
 interface SystemSelectorProps {
@@ -17,6 +17,7 @@ interface SystemSelectorProps {
   theme?: 'dark' | 'light';
   onSelectSystem: (system: SystemType) => void;
   onOpenBarcodeModal: () => void;
+  onOpenWireKey?: () => void;
   onChangeOperator: (name: string, isAdmin: boolean) => void;
 }
 
@@ -32,6 +33,7 @@ export const SystemSelector: React.FC<SystemSelectorProps> = ({
   theme = 'dark',
   onSelectSystem,
   onOpenBarcodeModal,
+  onOpenWireKey,
   onChangeOperator
 }) => {
   const profile = SYSTEM_PROFILES[currentSystem] || SYSTEM_PROFILES['inVia'];
@@ -110,6 +112,23 @@ export const SystemSelector: React.FC<SystemSelectorProps> = ({
             <span className="font-mono text-[11px] text-amber-500 italic">[Enter S/N]</span>
           )}
         </div>
+
+        {/* [Get WiRE Key] Button */}
+        {onOpenWireKey && (
+          <button
+            type="button"
+            onClick={onOpenWireKey}
+            className={`flex items-center space-x-1.5 px-2.5 py-1 rounded border text-xs font-semibold shadow-xs transition-all ${
+              isDark
+                ? 'bg-indigo-950/50 border-indigo-700/70 text-indigo-300 hover:bg-indigo-900/60 hover:text-white hover:border-indigo-500'
+                : 'bg-indigo-50 border-indigo-300 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900'
+            }`}
+            title="Generate WiRE Feature Permission Key from spd-apps"
+          >
+            <KeyRound className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Get WiRE Key</span>
+          </button>
+        )}
 
         {/* Customer Name (if defined) */}
         {customerName && (

@@ -13,6 +13,7 @@ import { WorkflowConfigModal } from './components/WorkflowConfigModal';
 import { ConfirmModal } from './components/ConfirmModal';
 import { AdminSettingsModal } from './components/AdminSettingsModal';
 import { WorkflowTemplateService } from './services/workflowTemplateService';
+import { WireKeyModal } from './components/WireKeyModal';
 
 export const App: React.FC = () => {
   // Theme state: 'dark' | 'light'
@@ -37,6 +38,8 @@ export const App: React.FC = () => {
   const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
+  const [isWireKeyModalOpen, setIsWireKeyModalOpen] = useState(false);
+  const [wireKeySerial, setWireKeySerial] = useState('');
   const [notification, setNotification] = useState<string | null>(null);
 
   // Confirmation modals state
@@ -377,6 +380,10 @@ export const App: React.FC = () => {
         theme={theme}
         onSelectSystem={handleRequestSystemSwitch}
         onOpenBarcodeModal={() => setIsBarcodeModalOpen(true)}
+        onOpenWireKey={() => {
+          setWireKeySerial(traveller.serialNumber);
+          setIsWireKeyModalOpen(true);
+        }}
         onChangeOperator={handleChangeOperator}
       />
 
@@ -422,6 +429,10 @@ export const App: React.FC = () => {
         operatorName={traveller.operatorName}
         isOpen={isStepDialogOpen}
         onClose={() => setIsStepDialogOpen(false)}
+        onOpenWireKey={() => {
+          setWireKeySerial(traveller.serialNumber);
+          setIsWireKeyModalOpen(true);
+        }}
         onUpdateStatus={handleUpdateStepStatus}
         onToggleChecklist={handleToggleChecklist}
         onUpdateMeasurement={handleUpdateMeasurement}
@@ -436,6 +447,10 @@ export const App: React.FC = () => {
         currentPartNumber={traveller.partNumber}
         currentSystem={traveller.system}
         onClose={() => setIsBarcodeModalOpen(false)}
+        onOpenWireKey={(sn) => {
+          setWireKeySerial(sn || traveller.serialNumber);
+          setIsWireKeyModalOpen(true);
+        }}
         onUpdateDetails={handleUpdateDetails}
       />
 
@@ -461,6 +476,34 @@ export const App: React.FC = () => {
         }}
         onSystemAdded={(newSystem) => {
           setNotification(`Registered new system: "${newSystem}".`);
+        }}
+      />
+
+      {/* Get WiRE Key Modal */}
+      <WireKeyModal
+        isOpen={isWireKeyModalOpen}
+        initialSerialNumber={wireKeySerial || traveller.serialNumber}
+        theme={theme}
+        onClose={() => setIsWireKeyModalOpen(false)}
+        onApplyKeyToNotes={(key) => {
+          if (selectedStepId) {
+            const step = traveller.steps.find((s) => s.id === selectedStepId);
+            const currentNotes = step?.notes || '';
+            const updatedNotes = currentNotes
+              ? `${currentNotes}\nWiRE Feature Permission Key: ${key}`
+              : `WiRE Feature Permission Key: ${key}`;
+            const updated = WorkflowService.updateStepStatus(
+              traveller,
+              selectedStepId,
+              step ? step.status : 'In Progress',
+              traveller.operatorName,
+              updatedNotes
+            );
+            setTraveller(updated);
+            setNotification(`WiRE Key added to step "${step?.name || selectedStepId}" notes`);
+          } else {
+            setNotification(`WiRE Key copied: ${key}`);
+          }
         }}
       />
 

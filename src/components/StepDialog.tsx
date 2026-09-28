@@ -3,7 +3,7 @@ import { WorkflowStep, StepStatus } from '../types/traveller';
 import { StorageService } from '../services/storageService';
 import { 
   X, CheckCircle, Clock, RotateCcw, AlertTriangle, FileText, 
-  CheckSquare, Square, Check, UserCheck, User
+  CheckSquare, Square, Check, UserCheck, User, KeyRound 
 } from 'lucide-react';
 
 interface StepDialogProps {
@@ -11,6 +11,7 @@ interface StepDialogProps {
   operatorName: string;
   isOpen: boolean;
   onClose: () => void;
+  onOpenWireKey?: () => void;
   onUpdateStatus: (stepId: string, status: StepStatus, notes?: string, technician?: string) => void;
   onToggleChecklist: (stepId: string, checklistId: string) => void;
   onUpdateMeasurement: (stepId: string, paramIndex: number, value: string) => void;
@@ -21,6 +22,7 @@ export const StepDialog: React.FC<StepDialogProps> = ({
   operatorName,
   isOpen,
   onClose,
+  onOpenWireKey,
   onUpdateStatus,
   onToggleChecklist,
   onUpdateMeasurement
@@ -241,9 +243,22 @@ export const StepDialog: React.FC<StepDialogProps> = ({
 
           {/* Technician Notes & Observations */}
           <div>
-            <label className="block text-xs font-semibold text-slate-200 mb-1.5 uppercase tracking-wide">
-              Technician Notes / Non-Conformance Details
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-slate-200 uppercase tracking-wide">
+                Technician Notes / Non-Conformance Details
+              </label>
+              {onOpenWireKey && (
+                <button
+                  type="button"
+                  onClick={onOpenWireKey}
+                  className="text-[11px] text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1 transition-colors"
+                  title="Generate and attach WiRE key to this procedure's notes"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span>Get WiRE Key</span>
+                </button>
+              )}
+            </div>
             <textarea
               rows={2}
               value={notes}
