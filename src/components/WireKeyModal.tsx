@@ -73,6 +73,8 @@ export const WireKeyModal: React.FC<WireKeyModalProps> = ({
       const key = await WireKeyService.GetWireKey(cleanSn);
       setGeneratedKey(key);
       setIsSimulatedOffline(false);
+      setErrorType(null);
+      setErrorMessage(null);
     } catch (err: any) {
       const msg = err.message || '';
       console.warn('GetWireKey failed:', msg);
@@ -95,20 +97,50 @@ export const WireKeyModal: React.FC<WireKeyModalProps> = ({
         setErrorType('http');
         setErrorMessage(msg);
       } else {
-        // Automatic fallback: Since browsers block cross-origin background fetch to intranet without CORS headers,
-        // automatically trigger the direct form submission in a new tab so the key opens immediately for the user!
+        // Automatic fallback: In web browser mode, cross-origin restrictions require opening the form in a tab.
+        // We open the tab with S/N prefilled and start an automatic clipboard listener:
+        // When the user copies the key from the spd-apps tab, it will automatically populate right here!
         setErrorType('network');
         setErrorMessage(
-          'Direct cross-origin fetch is protected by browser security. Opening spd-apps tab directly with your S/N...'
+          'Opened spd-apps in a new tab with your S/N. (In desktop Electron mode, this runs 100% invisibly in the background).'
         );
-        // Automatically submit the direct POST form to spd-apps
         setTimeout(() => {
           submitDirectForm(cleanSn);
+          startClipboardListener();
         }, 300);
       }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Automatic clipboard listener: listens for a 4x6 key copied to clipboard
+  const startClipboardListener = () => {
+    if (typeof window === 'undefined' || !navigator.clipboard) return;
+
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      attempts++;
+      if (attempts > 30) {
+        clearInterval(interval);
+        return;
+      }
+      try {
+        if (document.hasFocus()) {
+          const text = await navigator.clipboard.readText();
+          const match = text.trim().match(/^[A-Z0-9]{6}-[A-Z0-9]{6}-[A-Z0-9]{6}-[A-Z0-9]{6}$/);
+          if (match) {
+            setGeneratedKey(match[0]);
+            setIsSimulatedOffline(false);
+            setErrorType(null);
+            setErrorMessage(null);
+            clearInterval(interval);
+          }
+        }
+      } catch {
+        // Clipboard read permission might not be active, ignore
+      }
+    }, 1500);
   };
 
   // Helper function to programmatically submit POST form to spd-apps in a clean popup or tab

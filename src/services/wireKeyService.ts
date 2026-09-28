@@ -107,6 +107,22 @@ export class WireKeyService {
       throw new Error('Empty serial number. Please provide a valid instrument serial number.');
     }
 
+    // Desktop/Electron native background integration:
+    // If running inside Electron, use the native IPC bridge to query spd-apps directly without CORS limits
+    if (typeof window !== 'undefined' && (window as any).desktopAPI?.fetchWireKey) {
+      try {
+        const desktopRes = await (window as any).desktopAPI.fetchWireKey(cleanSn);
+        if (desktopRes && desktopRes.success && desktopRes.key) {
+          return desktopRes.key;
+        }
+        if (desktopRes && desktopRes.error) {
+          console.warn('Desktop fetchWireKey returned error:', desktopRes.error);
+        }
+      } catch (desktopErr) {
+        console.warn('Desktop fetchWireKey failed, falling back to browser fetch:', desktopErr);
+      }
+    }
+
     // Step 1: Pre-authenticate / warm-up session on spd-apps dashboard
     // This allows IIS / Windows Auth to issue session cookies before the POST request
     try {
