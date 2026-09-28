@@ -6,37 +6,46 @@ A modern, high-precision digital traveller and quality tracking system designed 
 
 ## 🚀 Running on Your Work PC
 
-### Option 1: Browser PWA (Instant, No Installation Required)
+### Option 1: Standalone Windows App (`.exe`) — No Node.js Required (Recommended for Network Test PCs)
+You **do not** need Node.js or any developer tools installed on your test PC. 
+
+#### Method A: Download directly from GitHub Actions (Latest Automated Build)
+1. Go to your repository on GitHub: `https://github.com/<your-username>/digital-traveller`
+2. Click on the **Actions** tab at the top.
+3. In the left sidebar, click **Build Windows Standalone Executable**.
+4. Click on the latest workflow run (or click **Run workflow** $\to$ **Run workflow** to generate a fresh one anytime).
+5. Once complete (green checkmark), scroll down to the **Artifacts** section at the bottom of the page.
+6. Click **`digital-traveller-windows`** to download the zip file.
+7. Unzip the file on your test PC. You will find:
+   - **`Digital Traveller <version>.exe`** (Installer)
+   - **`Digital Traveller <version>-portable.exe`** (Portable single-file executable — run directly with zero installation)
+8. Double-click the `.exe` to run! It runs completely self-contained and natively executes background WiRE Key requests with Windows domain authentication.
+
+#### Method B: Releases (Tag-based)
+Whenever a version tag (e.g. `v1.006`) is pushed, GitHub Actions automatically compiles the `.exe` and attaches both the setup installer and the portable executable under **Releases** on GitHub.
+
+---
+
+### Option 2: Browser PWA (Instant, No Installation Required)
 Open your shared cloud deployment link in Chrome or Microsoft Edge:
 - In the URL bar, click the **Install App** icon (or Menu $\to$ **Install Digital Traveller**).
 - It will run in its own standalone, frameless desktop window with local storage persistence.
 
 ---
 
-### Option 2: Running from Source (via GitHub)
-1. Ensure **Node.js** (v18 or higher) is installed on your PC.
-2. Clone or download this repository.
-3. Open a Command Prompt / PowerShell in the folder:
+### Option 3: Running from Source / Local Developer Mode
+If you already have **Node.js** (v18+) installed on your PC:
+1. Open a Command Prompt / PowerShell in the extracted project folder:
    ```bash
    npm install
    npm run dev
    ```
-4. Open `http://localhost:3000` in your browser.
-
----
-
-### Option 3: Building a Standalone Windows Desktop App (`.exe`)
-The repository includes an Electron desktop wrapper designed to provide direct operating system file access:
-
-1. In the project folder, build the production web bundle:
+2. Open `http://localhost:3000` in your browser.
+3. To package the desktop app locally:
    ```bash
-   npm run build
+   npm run electron:build
    ```
-2. Build the Windows installer/portable `.exe`:
-   ```bash
-   npx electron-builder --win
-   ```
-3. The executable will be generated inside the `dist/` or `release/` folder.
+   The `.exe` will be generated in the `release/` folder.
 
 ---
 

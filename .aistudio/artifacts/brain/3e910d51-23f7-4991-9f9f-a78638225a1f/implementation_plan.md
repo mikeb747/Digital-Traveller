@@ -1,94 +1,102 @@
-# Desktop Packaging & Network Share Excel (.xlsx) Integration Plan
+# Automated Windows Standalone Executable (.exe) via GitHub Actions
 
-This plan establishes the architecture for packaging the Digital Traveller into a native desktop application (using Electron) capable of directly reading, writing, and synchronizing with Excel (`.xlsx`) spreadsheets located on local company network shares (`\\server\share\...`).
-
----
+Deliver a ready-to-run Windows standalone executable (`.exe`) for Digital Traveller so test engineers on network PCs can run the desktop app with zero Node.js installation, zero terminal commands, and 100% background WiRE key retrieval.
 
 ### User Review & Critical Decisions
 
 > [!IMPORTANT]
-> The following architectural parameters have been confirmed based on your workflow needs:
+> The automated GitHub Actions workflow will produce two executable formats on every build:
+> 1. **Portable `.exe` (`Digital Traveller <version>.exe`)**: Run directly without installing anything or needing admin rights on the test PC.
+> 2. **Installer `.exe` (`Digital Traveller Setup <version>.exe`)**: Optional standard Windows installer with desktop shortcut.
 
-- **Confirmed Decision 1 (Packaging Architecture)**: Desktop application (Electron) with native file system and network drive permissions. Unlike browser-only sandboxes that block direct unc-path (`\\server\share\file.xlsx`) access, an Electron desktop wrapper allows seamless, transparent read/write access to mapped network drives and UNC paths.
-- **Confirmed Decision 2 (Spreadsheet Format)**: Native `.xlsx` binary workbook format. The application will use an industry-standard in-memory Excel engine (`xlsx` / `exceljs`) to parse existing production templates, update test records/rows, and save directly back without corrupting formatting, formulas, or metadata.
-- **Recommended Default (Dual-Mode Execution)**: The core web application remains 100% functional in any web browser with local fallback (save/open JSON & manual export), while lighting up direct network share spreadsheet sync automatically when launched in the desktop `.exe`.
+- **Confirmed Decision**: Automated build via GitHub Actions so developers and testers never need Node.js, Git, or build tools installed on their local test PCs.
+- **Workflow Triggers**: Triggerable on-demand via the **"Run workflow"** button in GitHub Actions, automatically on git tags (e.g. `v1.006`), and on pushes to `main`.
 
 ---
 
 ### 1. Overview & Core Concept
 
-- **What It Does**: Transforms the Digital Traveller into a Windows desktop application that can automatically open work orders from existing Excel production logbooks on a shared network drive (`\\share\manufacturing\travellers.xlsx`), allow technicians to complete test stages, and automatically append or update verification records directly back into the network spreadsheet upon stage completion.
-- **Target Audience / Persona**: Manufacturing technicians, test engineers, and quality assurance leads running production procedures on shop-floor PCs.
-- **Key Value**: Eliminates manual double-entry. Technicians complete testing on the interactive digital UI, and the company's shared network Excel sheets are kept up-to-date in real time.
+- **What It Does**: Automates the packaging of Digital Traveller and its Electron desktop wrapper in GitHub's cloud environment (`windows-latest`), generating downloadable Windows binaries (`.exe`).
+- **Target Audience / Persona**: Quality engineers, test bench operators, and technicians running on restricted test PCs without Node.js or development environments.
+- **Key Value**: Provides a double-clickable native Windows desktop app that leverages Windows Integrated Authentication (NTLM/Kerberos) to query `https://spd-apps/FeaturePermissions` off-screen, eliminating cross-origin browser restrictions and multi-click dashboard redirects.
 
 ---
 
-### 2. User Experience & Visual Design
-
-- **Key User Flows**:
-  1. **Configure Network Path**: Admin accesses Settings $\to$ Network Share Settings to specify the target `.xlsx` path (e.g. `Z:\Production\Travellers_2026.xlsx` or `\\corp\shares\QA\Records.xlsx`).
-  2. **Automated Row Lookup**: Entering or scanning a Serial Number or Job Number in the top bar scans the network spreadsheet for matching historical entries or initiates a new row.
-  3. **Live Sync / Append**: When a technician clicks *Mark Stage Complete* or *Sign & Lock*, the app writes test measurements (optical power, extinction ratio, checklist statuses, technician ID, and timestamp) directly into designated columns in the `.xlsx` file on the network share.
-  4. **Status Indicator**: An unobtrusive network connection badge shows the live status (`Connected to Z:\...`, `Syncing`, or `Offline Fallback`).
-
-- **Visual Identity & Theme**:
-  - Consistent with the clean industrial aesthetic of Digital Traveller (slate/zinc dark palette and high-contrast light mode `#f8fafc`).
-  - Subtle network sync badge in the title bar or footer indicating spreadsheet sync status.
-
----
-
-### 3. Key Product Decisions & Trade-Offs
-
-- **Decision 1: Native Desktop Wrapper (Electron) vs. Browser Sandbox**:
-  - *Chosen Approach*: Electron wrapper with an IPC bridge (`preload.ts` + Node `fs`/`path`).
-  - *Why*: Browsers intentionally sandbox web pages and forbid opening `\\server\share\...` or arbitrary file paths without repetitive "Open File" picker prompts on every single save. Electron provides true background read/write capabilities without interrupting the technician.
-  - *Alternatives Considered*: Browser File System Access API (rejected because it cannot silently auto-save across sessions to remote network paths and requires repetitive user permission prompts).
-
-- **Decision 2: In-Memory Excel Engine (`exceljs`) vs. CSV conversion**:
-  - *Chosen Approach*: `exceljs` engine running inside the background desktop process.
-  - *Why*: Supports rich formatting, multiple worksheets, cell styles, and formulas without altering non-traveller sheets or columns in company workbooks.
-  - *Alternatives Considered*: Plain CSV (rejected because modern corporate logs use multi-tab `.xlsx` spreadsheets).
-
-- **Decision 3: File Locking & Concurrency Protection**:
-  - *Chosen Approach*: Atomic write with retry and backup lock checks. If another engineer has the workbook opened in Excel (creating an Excel lock), the app alerts the technician with a non-blocking toast, queues the update, or saves an incremental append without crashing.
-
----
-
-### 4. Technical Architecture & Data Strategy
+### 2. User Experience & Workflow
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        Digital Traveller App                           │
-│  (React + Tailwind UI: StepList, TechSelector, SystemSelector)          │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │ IPC Invoke (saveRecord / loadSheet)
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                    Electron Desktop Preload Bridge                     │
-│               window.electronAPI.readExcel(path, query)                │
-│               window.electronAPI.updateExcel(path, data)               │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │ Node.js Native Runtime
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                     Network Drive File System (fs)                     │
-│  ExcelJS Engine: Reads / Updates / Writes binary `.xlsx` files         │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │ UNC / SMB Protocol
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│               Company Network Share (e.g. \\server\qa\)                │
-│  - Production_Travellers.xlsx                                          │
-│  - System_Calibration_Logs.xlsx                                        │
-└────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────┐
+│     GitHub Repository (Cloud)   │
+│  - Push commit or click         │
+│    "Run workflow" in Actions    │
+└────────────────┬────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────┐
+│   GitHub Actions Windows Runner │
+│  - Sets up Node & dependencies  │
+│  - Runs Vite production build   │
+│  - Packages via electron-builder│
+└────────────────┬────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────┐
+│  Direct Download in GitHub UI   │
+│  - Release Assets (.exe)        │
+│  - Workflow Artifacts (zip)     │
+└────────────────┬────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────┐
+│        Network Test PC          │
+│  - Double-click .exe to open    │
+│  - NO Node.js required!         │
+│  - 1-click WiRE key background  │
+│    fetch works out of the box   │
+└─────────────────────────────────┘
 ```
 
-- **Core Data Entities**:
-  - `ExcelConfig`: Network path, target sheet name, key column mapping (Serial Number, Stage, Date, Tech, Results).
-  - `SyncStatus`: `idle` | `reading` | `writing` | `locked_by_user` | `error`.
-  - `TravellerRecord`: Full digital traveller model mapped to designated rows and cells.
+#### Step-by-Step User Journey:
+1. **Triggering the Build**: In your GitHub repository, open the **Actions** tab, select **Build Windows Executable**, and click **Run workflow**. (Or push a new version tag / commit).
+2. **Downloading the Executable**: Once the ~3 minute build finishes, download the executable directly from the workflow's **Artifacts** section or the **Releases** page on GitHub.
+3. **Running on Network PC**: Copy the `.exe` (via flash drive, network share, or browser download) to your test PC. Double-click to launch Digital Traveller immediately.
 
-- **Interactive Handlers & Execution Phases**:
-  - **Phase A**: Add an `electron/` directory with `main.ts`, `preload.ts`, and packaging scripts (`electron-builder`) into `package.json` to produce a single-click Windows `.exe`.
-  - **Phase B**: Implement `SpreadsheetService` to handle parsing and updating `.xlsx` files with `exceljs`.
-  - **Phase C**: Add Admin Settings panel for configuring network spreadsheet paths and column mappings.
+---
+
+### 3. Key Product & Architecture Decisions
+
+- **Dual Target Output (Portable + NSIS Installer)**:
+  - *Chosen Approach*: Configure `electron-builder` to output both a standalone single-file portable `.exe` and an NSIS installer.
+  - *Why*: Network test PCs often have restricted local user privileges where running a portable `.exe` avoids UAC prompts or installation permissions.
+- **Dedicated GitHub Actions Workflow (`release-exe.yml`)**:
+  - *Chosen Approach*: Separate from the GitHub Pages deployment workflow (`deploy.yml`).
+  - *Why*: Keeps web app deployment fast (30 seconds on Linux) while running the Windows packaging on a native `windows-latest` runner with artifact retention.
+- **Local Dev Script Preservation**:
+  - *Chosen Approach*: Maintain `npm run electron:dev` and `npm run electron:build` in `package.json` so developers who *do* have Node.js can still run locally if desired.
+
+---
+
+### 4. Technical Architecture & Implementation Steps
+
+```
+📦 Repository Configuration
+├── .github/workflows/
+│   ├── deploy.yml            # (Existing) GitHub Pages web deployment
+│   └── build-exe.yml         # (New) Automated Windows .exe build & release
+├── package.json              # Configured electron-builder, targets, and scripts
+└── electron/
+    ├── main.cjs              # Electron main process with background NTLM fetch
+    └── preload.cjs           # Secure IPC bridge for desktopAPI
+```
+
+#### Implementation Tasks:
+1. **Configure `package.json`**:
+   - Add `electron` and `electron-builder` to `devDependencies`.
+   - Add `"electron:build": "npm run build && electron-builder --win"` script.
+   - Configure `"build"` metadata: `appId`, `productName`, file include patterns (`dist/**/*`, `electron/**/*`), and Windows targets (`portable`, `nsis`).
+2. **Create GitHub Actions Workflow (`.github/workflows/build-exe.yml`)**:
+   - Platform: `windows-latest`.
+   - Steps: Checkout, Node setup, dependency installation, Vite build, Electron packaging.
+   - Outputs: Uploads executables to GitHub Actions artifacts and automatically attaches to GitHub Releases when a tag or dispatch is triggered.
+3. **Documentation**:
+   - Add clear 3-step instructions in `README.md` explaining how to download the `.exe` directly from GitHub Actions without installing Node.js.

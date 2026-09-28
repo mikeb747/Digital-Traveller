@@ -24,12 +24,14 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          npm install
+          npm install --save-dev electron@33.2.1 electron-builder@25.1.8
 
       - name: Build web assets and package Windows executable
         run: |
           npm run build
-          npx electron-builder --win portable nsis
+          npx electron-builder --win portable nsis -c.electronVersion=33.2.1
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

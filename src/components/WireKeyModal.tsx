@@ -97,17 +97,11 @@ export const WireKeyModal: React.FC<WireKeyModalProps> = ({
         setErrorType('http');
         setErrorMessage(msg);
       } else {
-        // Automatic fallback: In web browser mode, cross-origin restrictions require opening the form in a tab.
-        // We open the tab with S/N prefilled and start an automatic clipboard listener:
-        // When the user copies the key from the spd-apps tab, it will automatically populate right here!
+        // Cross-origin restriction in browser:
         setErrorType('network');
         setErrorMessage(
-          'Opened spd-apps in a new tab with your S/N. (In desktop Electron mode, this runs 100% invisibly in the background).'
+          'Browser security restricts background reading from spd-apps without CORS. Click the button below to submit S/N directly, or use the Desktop version for background retrieval.'
         );
-        setTimeout(() => {
-          submitDirectForm(cleanSn);
-          startClipboardListener();
-        }, 300);
       }
     } finally {
       setIsLoading(false);

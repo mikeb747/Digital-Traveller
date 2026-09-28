@@ -1,6 +1,6 @@
 {
-  "summary":  "Architectural and implementation plan for packaging Digital Traveller as a desktop app with direct network share Excel (.xlsx) spreadsheet reading and writing capabilities.",
-  "updatedAt":  "2026-09-28T00:47:20.469792907Z",
+  "summary":  "Implementation plan for automated GitHub Actions build of standalone Windows executable (.exe) for Digital Traveller without requiring local Node.js installation.",
+  "updatedAt":  "2026-09-28T15:38:01.688574491Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

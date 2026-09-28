@@ -20,7 +20,7 @@ interface WindowFrameProps {
 export const WindowFrame: React.FC<WindowFrameProps> = ({
   system,
   serialNumber,
-  version = 'v1.005',
+  version = 'v1.0.6',
   theme,
   isAdmin = false,
   children,
@@ -189,8 +189,10 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
       <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
         {children}
 
-        {/* Version number positioned in bottom right in low-contrasting font without a box */}
-        <div className="absolute bottom-1 right-3 text-[10px] font-mono pointer-events-none select-none z-10 text-slate-500/35">
+        {/* Version number positioned in bottom right - 35-40% larger (10px -> 14px) */}
+        <div className={`absolute bottom-1.5 right-3 text-[14px] font-mono pointer-events-none select-none z-10 ${
+          isDark ? 'text-slate-500/50' : 'text-slate-400/60'
+        }`}>
           {version}
         </div>
       </main>

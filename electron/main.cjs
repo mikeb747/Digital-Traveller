@@ -11,7 +11,7 @@ function createWindow() {
     frame: false, // Frameless window to match our custom Windows 11 title bar
     titleBarStyle: 'hidden',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: false,
