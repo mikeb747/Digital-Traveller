@@ -53,3 +53,13 @@ The application features a built-in **Excel Hub** (accessed via the top title ba
   - **Audit Log**: Complete chronological event history.
 - **Bi-Directional Synchronization**: Load an existing or edited `.xlsx` file from your network share (`\\nas-prod\Renishaw\...` or mapped drive `Z:\...`) to automatically sync test results and step completions back into the digital traveller.
 - **Desktop File System Privileges**: When compiled as an Electron executable, it can directly read and write files over your local network share without browser prompt dialogs.
+
+---
+
+## 🐛 Known Issues & Bug Tracker
+
+| ID | Module | Issue | Status | Details |
+|---|---|---|---|---|
+| **BUG-001** | `WiRE Key Generator` | **Offline algorithm generates mismatched key** | **Logged / Pending Future Fix** | The client-side offline deterministic hash generator produces a key format that does not match the internal Renishaw proprietary encryption/hash used on `https://spd-apps/FeaturePermissions/generate`. Leave code intact as placeholder for when algorithm specs are provided. |
+| **NOTE-001** | `WiRE Key / spd-apps` | **Initial POST redirects to dashboard (Session init)** | **By Design (IIS Windows Auth)** | `https://spd-apps` uses Windows Integrated Authentication (NTLM/Kerberos). On first contact, the server establishes the authenticated session cookie via `/dashboard`. On the second click, the session cookie is transmitted and the key is displayed immediately. |
+| **NOTE-002** | `WiRE Key / spd-apps` | **HTTP 401.2 Unauthorized in InPrivate/Incognito mode** | **By Design (IIS Windows Auth)** | HTTP 401.2 indicates IIS Windows Integrated Authentication is rejected because InPrivate/Incognito browsing mode prevents automatic pass-through of your Windows domain login credentials (`RENA\...`). Regular browser mode is required to pass domain credentials to internal intranet servers. |

@@ -83,7 +83,7 @@ export const WireKeyModal: React.FC<WireKeyModalProps> = ({
       } else if (msg.includes('Authentication failure')) {
         setErrorType('auth');
         setErrorMessage(
-          'Authentication failed on https://spd-apps/FeaturePermissions/generate. Please log in with your Renishaw credentials in your browser first.'
+          'Authentication required on spd-apps. Please open the dashboard to authenticate your Windows session, then click Get WiRE Key again.'
         );
       } else if (msg.includes('Network timeout')) {
         setErrorType('timeout');
@@ -95,13 +95,41 @@ export const WireKeyModal: React.FC<WireKeyModalProps> = ({
         setErrorType('http');
         setErrorMessage(msg);
       } else {
+        // Automatic fallback: Since browsers block cross-origin background fetch to intranet without CORS headers,
+        // automatically trigger the direct form submission in a new tab so the key opens immediately for the user!
         setErrorType('network');
         setErrorMessage(
-          'Cannot reach https://spd-apps/FeaturePermissions/generate directly (intranet host unreachable or CORS restricted from current browser domain).'
+          'Direct cross-origin fetch is protected by browser security. Opening spd-apps tab directly with your S/N...'
         );
+        // Automatically submit the direct POST form to spd-apps
+        setTimeout(() => {
+          submitDirectForm(cleanSn);
+        }, 300);
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Helper function to programmatically submit POST form to spd-apps in a clean popup or tab
+  const submitDirectForm = (snToSubmit: string) => {
+    try {
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = 'https://spd-apps/FeaturePermissions/generate';
+      form.target = '_blank';
+
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'sn';
+      input.value = snToSubmit;
+
+      form.appendChild(input);
+      document.body.appendChild(form);
+      form.submit();
+      form.remove();
+    } catch (e) {
+      console.error('Failed to submit direct form', e);
     }
   };
 
@@ -335,11 +363,11 @@ export const WireKeyModal: React.FC<WireKeyModalProps> = ({
           )}
 
           {/* Intranet Reference Info & One-Click Dashboard Helper */}
-          <div className="p-3.5 rounded-lg border border-slate-800 bg-slate-950/40 text-xs space-y-2">
+          <div className="p-3.5 rounded-lg border border-slate-800 bg-slate-950/40 text-xs space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-slate-300 flex items-center gap-1.5">
                 <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Renishaw Intranet Dashboard</span>
+                <span>Renishaw Intranet (spd-apps)</span>
               </span>
               <a
                 href="https://spd-apps/FeaturePermissions/dashboard"
@@ -352,25 +380,34 @@ export const WireKeyModal: React.FC<WireKeyModalProps> = ({
             </div>
 
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              If your browser blocks background cross-origin requests, you can submit the form directly to spd-apps in a new tab:
+              Submit your serial number directly to <code className="text-slate-300 font-mono">spd-apps</code>:
             </p>
 
             <form
               action="https://spd-apps/FeaturePermissions/generate"
               method="POST"
               target="_blank"
-              className="flex items-center gap-2 pt-1"
+              className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1"
             >
               <input type="hidden" name="sn" value={serialNumber} />
               <button
                 type="submit"
                 disabled={!serialNumber.trim()}
-                className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-indigo-300 border border-slate-700 font-semibold text-xs flex items-center gap-1.5 transition-colors"
+                className="px-3.5 py-2 rounded-md bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-colors shadow"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 <span>Open in spd-apps with S/N ({serialNumber || '...'})</span>
               </button>
             </form>
+
+            <div className="text-[10px] text-slate-400 bg-slate-900/80 p-2.5 rounded border border-slate-800 space-y-1">
+              <div>
+                <strong className="text-slate-300">Note:</strong> If the first click opens the dashboard, this initializes your intranet session; clicking a second time will display the generated key directly.
+              </div>
+              <div className="text-amber-400/90">
+                ⚠️ Avoid <em>InPrivate/Incognito</em> mode when opening spd-apps (causes <strong>HTTP 401.2</strong> because private windows block Windows domain authentication).
+              </div>
+            </div>
           </div>
         </div>
 

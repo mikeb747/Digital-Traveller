@@ -20,7 +20,7 @@ interface WindowFrameProps {
 export const WindowFrame: React.FC<WindowFrameProps> = ({
   system,
   serialNumber,
-  version = 'v1.002',
+  version = 'v1.004',
   theme,
   isAdmin = false,
   children,

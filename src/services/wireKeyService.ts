@@ -107,6 +107,23 @@ export class WireKeyService {
       throw new Error('Empty serial number. Please provide a valid instrument serial number.');
     }
 
+    // Step 1: Pre-authenticate / warm-up session on spd-apps dashboard
+    // This allows IIS / Windows Auth to issue session cookies before the POST request
+    try {
+      const warmupCtrl = new AbortController();
+      const warmupTimeout = setTimeout(() => warmupCtrl.abort(), 2000);
+      await fetch('https://spd-apps/FeaturePermissions/dashboard', {
+        method: 'GET',
+        credentials: 'include',
+        mode: 'cors',
+        signal: warmupCtrl.signal
+      }).catch(() => {
+        // Silently continue if warmup times out or blocked by CORS
+      }).finally(() => clearTimeout(warmupTimeout));
+    } catch {
+      // Warm-up is best-effort
+    }
+
     // Prepare x-www-form-urlencoded body
     const formData = new URLSearchParams();
     formData.append('sn', cleanSn);
