@@ -5,13 +5,15 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
 
 jobs:
   build-windows:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
       - name: Check out repository
@@ -24,14 +26,12 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: |
-          npm install
-          npm install --save-dev electron@33.2.1 electron-builder@25.1.8
+        run: npm install
 
       - name: Build web assets and package Windows executable
         run: |
           npm run build
-          npx electron-builder --win portable nsis -c.electronVersion=33.2.1
+          npx electron-builder --win nsis portable
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -39,8 +39,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: digital-traveller-windows
-          path: |
-            dist/*.exe
-            release/*.exe
-          if-no-files-found: warn
+          path: release/*.exe
+          if-no-files-found: error
           retention-days: 30
