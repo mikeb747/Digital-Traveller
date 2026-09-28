@@ -138,6 +138,11 @@ export class StorageService {
           if ((parsed.system as string).toLowerCase() === 'invia') {
             parsed.system = 'inVia';
           }
+          // Ensure active operator matches the last selected technician if none set
+          const lastTech = this.getLastActiveTechnician();
+          if (!parsed.operatorName && lastTech) {
+            parsed.operatorName = lastTech;
+          }
           return parsed;
         }
       }

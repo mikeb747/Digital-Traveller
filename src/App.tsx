@@ -198,6 +198,7 @@ export const App: React.FC = () => {
   // Handle operator change & Admin mode toggle
   const handleChangeOperator = (operatorName: string, isUserAdmin: boolean) => {
     setIsAdmin(isUserAdmin);
+    StorageService.setLastActiveTechnician(operatorName);
     setTraveller((prev) => ({
       ...prev,
       operatorName,
