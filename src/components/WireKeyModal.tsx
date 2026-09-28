@@ -334,15 +334,43 @@ export const WireKeyModal: React.FC<WireKeyModalProps> = ({
             </div>
           )}
 
-          {/* Intranet Reference Info Box */}
-          <div className="p-3 rounded-lg border border-slate-800 bg-slate-950/40 text-[11px] text-slate-400 space-y-1">
-            <div className="font-semibold text-slate-300 flex items-center gap-1.5">
-              <ExternalLink className="w-3 h-3 text-indigo-400" />
-              <span>Direct Intranet Address:</span>
+          {/* Intranet Reference Info & One-Click Dashboard Helper */}
+          <div className="p-3.5 rounded-lg border border-slate-800 bg-slate-950/40 text-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+                <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Renishaw Intranet Dashboard</span>
+              </span>
+              <a
+                href="https://spd-apps/FeaturePermissions/dashboard"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] text-indigo-400 hover:text-indigo-300 underline font-semibold flex items-center gap-1"
+              >
+                Open Dashboard <ExternalLink className="w-3 h-3" />
+              </a>
             </div>
-            <p className="font-mono text-[10px] text-slate-400 break-all select-all">
-              https://spd-apps/FeaturePermissions/generate
+
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              If your browser blocks background cross-origin requests, you can submit the form directly to spd-apps in a new tab:
             </p>
+
+            <form
+              action="https://spd-apps/FeaturePermissions/generate"
+              method="POST"
+              target="_blank"
+              className="flex items-center gap-2 pt-1"
+            >
+              <input type="hidden" name="sn" value={serialNumber} />
+              <button
+                type="submit"
+                disabled={!serialNumber.trim()}
+                className="px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-indigo-300 border border-slate-700 font-semibold text-xs flex items-center gap-1.5 transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Open in spd-apps with S/N ({serialNumber || '...'})</span>
+              </button>
+            </form>
           </div>
         </div>
 

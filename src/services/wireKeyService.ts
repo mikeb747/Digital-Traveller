@@ -112,40 +112,51 @@ export class WireKeyService {
     formData.append('sn', cleanSn);
 
     const endpoints = [
-      // 1. Direct intranet HTTPS URL (will succeed on Renishaw local intranet / company network with existing browser session)
-      'https://spd-apps/FeaturePermissions/generate',
-      // 2. Direct HTTP variant if intranet certificates are local
-      'http://spd-apps/FeaturePermissions/generate',
-      // 3. Local Vite dev proxy fallback if running inside applet
-      '/api/feature-permissions/generate'
+      // 1. Direct intranet HTTPS URL
+      { url: 'https://spd-apps/FeaturePermissions/generate', method: 'POST' },
+      // 2. Direct HTTP variant
+      { url: 'http://spd-apps/FeaturePermissions/generate', method: 'POST' },
+      // 3. GET with query param in case server accepts query strings
+      { url: `https://spd-apps/FeaturePermissions/generate?sn=${encodeURIComponent(cleanSn)}`, method: 'GET' },
+      // 4. Local Vite dev proxy fallback if running inside applet
+      { url: '/api/feature-permissions/generate', method: 'POST' }
     ];
 
     let lastError: Error | null = null;
     let authFailed = false;
 
-    for (const url of endpoints) {
+    for (const endpoint of endpoints) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 7000);
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-        const response = await fetch(url, {
-          method: 'POST',
+        const fetchOptions: RequestInit = {
+          method: endpoint.method,
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
             Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
           },
-          body: formData.toString(),
           credentials: 'include', // Automatically reuses existing Windows user session / company SSO / cookies
           signal: controller.signal
-        });
+        };
 
+        if (endpoint.method === 'POST') {
+          (fetchOptions.headers as Record<string, string>)['Content-Type'] = 'application/x-www-form-urlencoded';
+          fetchOptions.body = formData.toString();
+        }
+
+        const response = await fetch(endpoint.url, fetchOptions);
         clearTimeout(timeoutId);
 
         if (response.status === 401 || response.status === 403) {
           authFailed = true;
           throw new Error(
-            `Authentication failure (HTTP ${response.status}). Your session or company permissions may have expired on spd-apps.`
+            `Authentication failure (HTTP ${response.status}). Please verify you are logged into spd-apps in your browser.`
           );
+        }
+
+        if (response.status === 405) {
+          // Method not allowed on this endpoint variant, continue to next
+          continue;
         }
 
         if (!response.ok) {
@@ -157,18 +168,15 @@ export class WireKeyService {
 
         if (extractedKey) {
           return extractedKey;
-        } else {
-          throw new Error('Key phrase not found in HTML response (<p id="phrase"> missing or empty).');
         }
       } catch (err: any) {
         if (err.name === 'AbortError') {
-          lastError = new Error('Network timeout: spd-apps did not respond within 7 seconds.');
+          lastError = new Error('Network timeout: spd-apps did not respond within 6 seconds.');
         } else {
           lastError = err;
         }
 
         if (authFailed) {
-          // Authentication error is definitive, stop trying other endpoints
           break;
         }
       }
