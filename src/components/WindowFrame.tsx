@@ -12,7 +12,6 @@ interface WindowFrameProps {
   onToggleTheme: () => void;
   onOpenSettings?: () => void;
   onOpenConfig?: () => void;
-  onOpenExcelHub?: () => void;
   onExportJson?: () => void;
   onImportJsonClick?: () => void;
   onNewTraveller?: () => void;
@@ -28,7 +27,6 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
   onToggleTheme,
   onOpenSettings,
   onOpenConfig,
-  onOpenExcelHub,
   onExportJson,
   onImportJsonClick,
   onNewTraveller
@@ -104,20 +102,6 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
               <span>📂 Open</span>
             </button>
 
-            {/* Network Share & Excel Hub */}
-            <button
-              type="button"
-              onClick={onOpenExcelHub}
-              className={`h-7 px-2.5 rounded text-xs font-medium flex items-center space-x-1 transition-colors ${
-                isDark
-                  ? 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/60'
-                  : 'text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100'
-              }`}
-              title="Network Share Excel (.xlsx) Hub"
-            >
-              <span>📊 Excel Hub</span>
-            </button>
-
             {/* Configure Steps: Only visible to Admin user */}
             {isAdmin && (
               <button
@@ -136,21 +120,23 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
 
         {/* Windows Standard Window Buttons & Theme Switch */}
         <div className="flex items-center -mr-3 h-full flex-shrink-0">
-          {/* Settings button, visible only to Admin user, next to dark mode button */}
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              title="Workflow & System Settings (Admin)"
-              className={`h-10 px-2.5 transition-colors flex items-center justify-center ${
-                isDark
+          {/* Settings button (Excel Hub & Network Shares, Workflows) */}
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            title={isAdmin ? "Settings & Excel Hub (Admin)" : "Settings & Network Share Excel Hub"}
+            className={`h-10 px-2.5 transition-colors flex items-center justify-center ${
+              isAdmin
+                ? isDark
                   ? 'text-amber-400 hover:text-amber-300 hover:bg-slate-800/80'
                   : 'text-amber-600 hover:text-amber-800 hover:bg-slate-300/80'
-              }`}
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-          )}
+                : isDark
+                ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/80'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-300/80'
+            }`}
+          >
+            <Settings className="w-4 h-4" />
+          </button>
 
           {/* Light and Dark Mode Switch */}
           <button

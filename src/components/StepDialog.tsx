@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { WorkflowStep, StepStatus } from '../types/traveller';
+import { StorageService } from '../services/storageService';
 import { 
   X, CheckCircle, Clock, RotateCcw, AlertTriangle, FileText, 
-  CheckSquare, Square, Check, UserCheck
+  CheckSquare, Square, Check, UserCheck, User
 } from 'lucide-react';
 
 interface StepDialogProps {
@@ -10,7 +11,7 @@ interface StepDialogProps {
   operatorName: string;
   isOpen: boolean;
   onClose: () => void;
-  onUpdateStatus: (stepId: string, status: StepStatus, notes?: string) => void;
+  onUpdateStatus: (stepId: string, status: StepStatus, notes?: string, technician?: string) => void;
   onToggleChecklist: (stepId: string, checklistId: string) => void;
   onUpdateMeasurement: (stepId: string, paramIndex: number, value: string) => void;
 }
@@ -27,11 +28,15 @@ export const StepDialog: React.FC<StepDialogProps> = ({
   if (!isOpen || !step) return null;
 
   const [notes, setNotes] = useState(step.notes || '');
+  const [signoffTechnician, setSignoffTechnician] = useState(
+    step.technician || operatorName || 'M. Brown'
+  );
 
-  // Keep notes synchronized when step changes
+  // Keep notes and technician synchronized when step changes
   useEffect(() => {
     setNotes(step.notes || '');
-  }, [step]);
+    setSignoffTechnician(step.technician || operatorName || 'M. Brown');
+  }, [step, operatorName]);
 
   // Press Escape on keyboard to close without completing
   useEffect(() => {
@@ -45,20 +50,20 @@ export const StepDialog: React.FC<StepDialogProps> = ({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [notes, step]);
+  }, [notes, step, signoffTechnician]);
 
   const handleMarkComplete = () => {
-    onUpdateStatus(step.id, 'Complete', notes);
+    onUpdateStatus(step.id, 'Complete', notes, signoffTechnician);
     onClose();
   };
 
   const handleMarkInProgress = () => {
-    onUpdateStatus(step.id, 'In Progress', notes);
+    onUpdateStatus(step.id, 'In Progress', notes, signoffTechnician);
     onClose();
   };
 
   const handleReset = () => {
-    onUpdateStatus(step.id, 'Not Started', notes);
+    onUpdateStatus(step.id, 'Not Started', notes, signoffTechnician);
     onClose();
   };
 
@@ -209,6 +214,30 @@ export const StepDialog: React.FC<StepDialogProps> = ({
               </div>
             </div>
           )}
+
+          {/* Test Technician Sign-off Selector */}
+          <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div>
+              <label className="text-xs font-semibold text-slate-200 flex items-center gap-1.5 uppercase tracking-wide">
+                <UserCheck className="w-3.5 h-3.5 text-blue-400" />
+                Sign-off Test Technician
+              </label>
+              <p className="text-[11px] text-slate-400">
+                Official technician identity stamped on procedure sign-off &amp; test sheet
+              </p>
+            </div>
+            <select
+              value={signoffTechnician}
+              onChange={(e) => setSignoffTechnician(e.target.value)}
+              className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-blue-300 font-semibold focus:outline-hidden focus:border-blue-500 cursor-pointer"
+            >
+              {StorageService.getTechnicians().map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Technician Notes & Observations */}
           <div>

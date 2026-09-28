@@ -8,11 +8,15 @@ const STORAGE_KEY_ACTIVE_SYSTEM = 'digital_traveller_active_system';
 const STORAGE_KEY_SYSTEM_PREFIX = 'digital_traveller_system_';
 const STORAGE_KEY_TECHS = 'digital_traveller_technicians';
 
-const DEFAULT_TECHNICIANS = [
-  'Senior QA / Build Tech',
-  'Mike Brown',
-  'Lead Test Engineer',
-  'Optical Calibration Specialist'
+export const DEFAULT_TECHNICIANS = [
+  'P. Street',
+  'M. Stinchcombe',
+  'K. Pettet',
+  'R. Meek',
+  'M. Brown',
+  'C. Smith',
+  'P. Hall',
+  'P. Watson'
 ];
 
 export class StorageService {
@@ -34,7 +38,7 @@ export class StorageService {
     // S/N is blank until entered
     const serial = customSerial !== undefined ? customSerial.trim() : '';
     const workOrder = `WO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const operator = operatorName || this.getLastActiveTechnician() || 'Senior QA / Build Tech';
+    const operator = operatorName || this.getLastActiveTechnician() || 'M. Brown';
 
     // Load persistent template (persists custom tabs and steps added by Admin)
     const template = WorkflowTemplateService.getTemplate(normalizedSystem);
@@ -195,7 +199,7 @@ export class StorageService {
   }
 
   static getLastActiveTechnician(): string {
-    return localStorage.getItem('digital_traveller_last_tech') || 'Senior QA / Build Tech';
+    return localStorage.getItem('digital_traveller_last_tech') || 'M. Brown';
   }
 
   static setLastActiveTechnician(tech: string): void {

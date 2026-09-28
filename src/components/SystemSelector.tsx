@@ -1,6 +1,7 @@
 import React from 'react';
 import { SystemType } from '../types/traveller';
 import { SYSTEM_PROFILES } from '../services/defaultWorkflows';
+import { SystemRegistryService } from '../services/systemRegistryService';
 import { SlidersHorizontal, CheckCircle2, User, Briefcase, Tag } from 'lucide-react';
 import { TechSelector } from './TechSelector';
 
@@ -34,8 +35,8 @@ export const SystemSelector: React.FC<SystemSelectorProps> = ({
   onChangeOperator
 }) => {
   const profile = SYSTEM_PROFILES[currentSystem] || SYSTEM_PROFILES['inVia'];
-  // All references to inVia have lowercase 'i'
-  const systems: SystemType[] = ['inVia', 'Virsa', 'inLux'];
+  // Dynamically load all registered systems (built-ins + any user added)
+  const systems: SystemType[] = SystemRegistryService.getSystems();
   const isDark = theme === 'dark';
 
   return (

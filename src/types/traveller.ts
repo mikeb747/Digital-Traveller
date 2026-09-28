@@ -1,4 +1,4 @@
-export type SystemType = 'inVia' | 'Virsa' | 'inLux';
+export type SystemType = string;
 
 export type DefaultWorkflowStage = 'Setup' | 'Calibration' | 'Final Test & Release';
 export type WorkflowStage = string;

@@ -13,7 +13,6 @@ import { WorkflowConfigModal } from './components/WorkflowConfigModal';
 import { ConfirmModal } from './components/ConfirmModal';
 import { AdminSettingsModal } from './components/AdminSettingsModal';
 import { WorkflowTemplateService } from './services/workflowTemplateService';
-import { NetworkShareExcelModal } from './components/NetworkShareExcelModal';
 
 export const App: React.FC = () => {
   // Theme state: 'dark' | 'light'
@@ -38,7 +37,6 @@ export const App: React.FC = () => {
   const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
-  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
 
   // Confirmation modals state
@@ -148,12 +146,17 @@ export const App: React.FC = () => {
 
   // Handle step status update from dialog
   // When a task is marked complete, automatically select the next task on the list
-  const handleUpdateStepStatus = (stepId: string, status: StepStatus, notes?: string) => {
+  const handleUpdateStepStatus = (
+    stepId: string,
+    status: StepStatus,
+    notes?: string,
+    technician?: string
+  ) => {
     const updated = WorkflowService.updateStepStatus(
       traveller,
       stepId,
       status,
-      traveller.operatorName,
+      technician || traveller.operatorName,
       notes
     );
     setTraveller(updated);
@@ -340,7 +343,6 @@ export const App: React.FC = () => {
       onToggleTheme={handleToggleTheme}
       onOpenSettings={() => setIsAdminSettingsOpen(true)}
       onOpenConfig={() => setIsConfigModalOpen(true)}
-      onOpenExcelHub={() => setIsExcelModalOpen(true)}
       onExportJson={handleExportJson}
       onImportJsonClick={handleImportJsonClick}
       onNewTraveller={handleNewTravellerClick}
@@ -445,7 +447,7 @@ export const App: React.FC = () => {
         onAddStep={handleAddCustomStep}
       />
 
-      {/* Admin Settings Modal (Save Workflows & Load Workflows) */}
+      {/* Settings Modal (Excel Hub with Network Locations, All-Systems Workflows & Add New System) */}
       <AdminSettingsModal
         isOpen={isAdminSettingsOpen}
         system={traveller.system}
@@ -453,16 +455,12 @@ export const App: React.FC = () => {
         theme={theme}
         onClose={() => setIsAdminSettingsOpen(false)}
         onApplyWorkflows={handleApplyWorkflows}
-      />
-
-      {/* Network Share & Excel (.xlsx) Hub Modal */}
-      <NetworkShareExcelModal
-        isOpen={isExcelModalOpen}
-        onClose={() => setIsExcelModalOpen(false)}
-        traveller={traveller}
         onUpdateTravellerFromExcel={(updatedRec, msg) => {
           setTraveller(updatedRec);
           setNotification(msg);
+        }}
+        onSystemAdded={(newSystem) => {
+          setNotification(`Registered new system: "${newSystem}".`);
         }}
       />
 
