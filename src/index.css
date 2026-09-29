@@ -6,6 +6,14 @@
   }
 }
 
+/* Electron frameless window: title bar drags the window, controls stay clickable */
+.drag-region {
+  -webkit-app-region: drag;
+}
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
 /* Custom scrollbars matching Windows 11 Fluent aesthetic */
 ::-webkit-scrollbar {
   width: 8px;
