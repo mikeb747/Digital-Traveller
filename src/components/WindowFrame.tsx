@@ -17,6 +17,11 @@ interface WindowFrameProps {
   onNewTraveller?: () => void;
 }
 
+// Bridge exposed by electron/preload.cjs (undefined when running in a normal browser)
+const desktop = () => (window as any).desktopAPI as
+  | { minimize: () => void; maximize: () => void; close: () => void }
+  | undefined;
+
 export const WindowFrame: React.FC<WindowFrameProps> = ({
   system,
   serialNumber,
@@ -39,9 +44,9 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
         isDark ? 'bg-slate-950 text-slate-100 border-slate-700/60' : 'bg-slate-100 text-slate-900 border-slate-300'
       }`}
     >
-      {/* Modern Windows 11 Title Bar with integrated actions */}
+      {/* Modern Windows 11 Title Bar with integrated actions (drag region) */}
       <header
-        className={`h-10 backdrop-blur-md border-b flex items-center justify-between px-3 select-none flex-shrink-0 z-20 transition-colors ${
+        className={`drag-region h-10 backdrop-blur-md border-b flex items-center justify-between px-3 select-none flex-shrink-0 z-20 transition-colors ${
           isDark ? 'bg-slate-900/90 border-slate-800 text-slate-200' : 'bg-slate-200/90 border-slate-300 text-slate-800'
         }`}
       >
@@ -61,8 +66,8 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
 
           <div className={`h-4 w-px mx-1 flex-shrink-0 ${isDark ? 'bg-slate-700/70' : 'bg-slate-300'}`}></div>
 
-          {/* Action Buttons moved up to top bar starting roughly where version number was */}
-          <div className="flex items-center space-x-1 flex-shrink-0">
+          {/* Action buttons: must opt out of the drag region to be clickable */}
+          <div className="no-drag flex items-center space-x-1 flex-shrink-0">
             <button
               type="button"
               onClick={onNewTraveller}
@@ -118,8 +123,8 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
           </div>
         </div>
 
-        {/* Windows Standard Window Buttons & Theme Switch */}
-        <div className="flex items-center -mr-3 h-full flex-shrink-0">
+        {/* Settings, theme switch and Windows window buttons */}
+        <div className="no-drag flex items-center -mr-3 h-full flex-shrink-0">
           {/* Settings button (Excel Hub & Network Shares, Workflows) */}
           <button
             type="button"
@@ -156,6 +161,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
           <button
             type="button"
             title="Minimize"
+            onClick={() => desktop()?.minimize()}
             className={`h-10 px-3.5 transition-colors flex items-center justify-center ${
               isDark ? 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/80' : 'text-slate-600 hover:text-black hover:bg-slate-300/80'
             }`}
@@ -167,6 +173,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
           <button
             type="button"
             title="Maximize / Restore"
+            onClick={() => desktop()?.maximize()}
             className={`h-10 px-3.5 transition-colors flex items-center justify-center ${
               isDark ? 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/80' : 'text-slate-600 hover:text-black hover:bg-slate-300/80'
             }`}
@@ -178,6 +185,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
           <button
             type="button"
             title="Close Application"
+            onClick={() => desktop()?.close()}
             className="h-10 px-4 text-slate-400 hover:text-white hover:bg-rose-600 transition-colors flex items-center justify-center"
           >
             <X className="w-3.5 h-3.5" />
@@ -185,11 +193,11 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
         </div>
       </header>
 
-      {/* Main Content Area (Ribbon removed completely, shifting everything up) */}
+      {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
         {children}
 
-        {/* Version number positioned in bottom right - 35-40% larger (10px -> 14px) */}
+        {/* Version number positioned in bottom right */}
         <div className={`absolute bottom-1.5 right-3 text-[14px] font-mono pointer-events-none select-none z-10 ${
           isDark ? 'text-slate-500/50' : 'text-slate-400/60'
         }`}>
