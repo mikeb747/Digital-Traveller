@@ -28,15 +28,24 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build web assets and package Windows executable
+      - name: Build web app
+        run: npm run build
+
+      - name: Confirm web-build exists
+        shell: pwsh
         run: |
-          npm run build
-          npx electron-builder --win nsis portable --publish never
+          if (-not (Test-Path web-build/index.html)) { Write-Error "web build missing"; exit 1 }
+          Get-ChildItem web-build
+
+      - name: Package Windows executable
+        run: npx electron-builder --win nsis portable --publish never
 
       - name: Verify web app is packaged
         shell: pwsh
         run: |
-          $list = npx asar list release/win-unpacked/resources/app.asar
+          Write-Host "--- app.asar contents (excluding node_modules) ---"
+          $list = npx --yes asar list release/win-unpacked/resources/app.asar
+          $list | Where-Object { $_ -notmatch 'node_modules' } | ForEach-Object { Write-Host $_ }
           if (-not ($list | Select-String -Pattern 'web-build.index\.html' -Quiet)) {
             Write-Error "index.html missing from app.asar"
             exit 1
