@@ -5,6 +5,10 @@ import tailwindcss from '@tailwindcss/vite';
 // https://vitejs.dev/config/
 export default defineConfig({
   base: './',
+  build: {
+    // Renamed from the default "dist" so electron-builder can't filter it out
+    outDir: 'web-build',
+  },
   plugins: [react(), tailwindcss()],
   server: {
     host: '0.0.0.0',
