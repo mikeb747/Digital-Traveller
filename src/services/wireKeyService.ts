@@ -9,6 +9,10 @@
  *
  * Response: HTML containing:
  * <p id="phrase">GVU7TA-JXR7EH-4CLA3W-36DS4G</p>
+ *
+ * In the desktop (Electron) app the request is made by the main process with the
+ * signed-in Windows user's credentials. In a plain browser it cannot read the
+ * response (cross-origin), so the browser fallbacks below usually fail.
  */
 
 export interface WireKeyResult {
@@ -22,7 +26,7 @@ export class WireKeyService {
   /**
    * Deterministic Renishaw WiRE Key generator fallback
    * Used when spd-apps internal server is inaccessible from non-Renishaw intranet or offline test benches.
-   * Produces authentic Renishaw 4x6 phrase format: XXXXXX-XXXXXX-XXXXXX-XXXXXX
+   * NOTE: does NOT match the real Renishaw algorithm (see README BUG-001) - keys are not valid.
    */
   static generateDeterministicKey(serialNumber: string): string {
     const cleanSn = serialNumber.trim().toUpperCase();
@@ -91,14 +95,10 @@ export class WireKeyService {
   }
 
   /**
-   * Core function required by specification: GetWireKey(serialNumber)
+   * Core function: GetWireKey(serialNumber)
    *
-   * Accepts a serial number string.
-   * Performs the authenticated POST request as the browser.
-   * Sends: sn=<serialNumber>
-   * Receives HTML response.
-   * Extracts <p id="phrase">KEY_HERE</p>.
-   * Returns only the generated key.
+   * Accepts a serial number string, POSTs sn=<serialNumber> to spd-apps,
+   * extracts <p id="phrase">KEY_HERE</p> and returns only the generated key.
    */
   static async GetWireKey(serialNumber: string): Promise<string> {
     const cleanSn = (serialNumber || '').trim();
@@ -107,24 +107,21 @@ export class WireKeyService {
       throw new Error('Empty serial number. Please provide a valid instrument serial number.');
     }
 
-    // Desktop/Electron native background integration:
-    // If running inside Electron, use the native IPC bridge to query spd-apps directly without CORS limits
-    if (typeof window !== 'undefined' && (window as any).desktopAPI?.fetchWireKey) {
-      try {
-        const desktopRes = await (window as any).desktopAPI.fetchWireKey(cleanSn);
-        if (desktopRes && desktopRes.success && desktopRes.key) {
-          return desktopRes.key;
-        }
-        if (desktopRes && desktopRes.error) {
-          console.warn('Desktop fetchWireKey returned error:', desktopRes.error);
-        }
-      } catch (desktopErr) {
-        console.warn('Desktop fetchWireKey failed, falling back to browser fetch:', desktopErr);
+    // Desktop (Electron) app: the main process makes the request with the user's Windows login.
+    // If it fails, report the real error rather than falling back to browser requests
+    // that cannot work from inside the app.
+    const desktopApi = typeof window !== 'undefined' ? (window as any).desktopAPI : undefined;
+    if (desktopApi?.fetchWireKey) {
+      const desktopRes = await desktopApi.fetchWireKey(cleanSn);
+      if (desktopRes && desktopRes.success && desktopRes.key) {
+        return desktopRes.key;
       }
+      throw new Error(desktopRes?.error || 'Network timeout: no response from spd-apps.');
     }
 
+    // ---- Browser-only path below (usually blocked by CORS unless hosted on the spd-apps origin) ----
+
     // Step 1: Pre-authenticate / warm-up session on spd-apps dashboard
-    // This allows IIS / Windows Auth to issue session cookies before the POST request
     try {
       const warmupCtrl = new AbortController();
       const warmupTimeout = setTimeout(() => warmupCtrl.abort(), 2000);
@@ -168,7 +165,7 @@ export class WireKeyService {
           headers: {
             Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
           },
-          credentials: 'include', // Automatically reuses existing Windows user session / company SSO / cookies
+          credentials: 'include',
           signal: controller.signal
         };
 
@@ -188,7 +185,6 @@ export class WireKeyService {
         }
 
         if (response.status === 405) {
-          // Method not allowed on this endpoint variant, continue to next
           continue;
         }
 
@@ -215,13 +211,10 @@ export class WireKeyService {
       }
     }
 
-    // If on intranet and failed with auth error, throw immediately
     if (authFailed) {
       throw lastError || new Error('Authentication failure on spd-apps.');
     }
 
-    // In isolated test/cloud preview environments where intranet DNS 'spd-apps' cannot resolve over public internet,
-    // Provide clean error details OR graceful algorithmic key generator if requested by technician.
     throw lastError || new Error('Network unavailable: Unable to reach https://spd-apps/FeaturePermissions/generate.');
   }
 }
