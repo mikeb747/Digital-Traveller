@@ -1,6 +1,11 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
+
+// Send the signed-in Windows user's credentials (NTLM/Kerberos) to spd-apps automatically.
+// Both spellings are set because Chromium renamed this switch across versions.
+app.commandLine.appendSwitch('auth-server-allowlist', 'spd-apps');
+app.commandLine.appendSwitch('auth-server-whitelist', 'spd-apps');
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
@@ -85,137 +90,56 @@ ipcMain.handle('select-network-directory', async (event) => {
   return result.filePaths[0];
 });
 
-// Automatic Native Background WiRE Key Fetcher
-// Uses an invisible, offscreen BrowserWindow that automatically shares the Windows/NTLM user credentials
+// Automatic WiRE Key fetch.
+// POSTs sn=<serial> to spd-apps using the signed-in Windows user's credentials and reads
+// <p id="phrase">KEY</p> from the HTML response. Runs in the main process, so browser
+// cross-origin (CORS) rules do not apply.
+const WIRE_KEY_URL = 'https://spd-apps/FeaturePermissions/generate';
+
 ipcMain.handle('fetch-wire-key', async (event, serialNumber) => {
   const cleanSn = (serialNumber || '').trim();
   if (!cleanSn) {
     return { success: false, error: 'Empty serial number provided.' };
   }
 
-  return new Promise((resolve) => {
-    let completed = false;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
 
-    // Create a hidden, off-screen window with standard user session
-    const hiddenWin = new BrowserWindow({
-      show: false,
-      width: 800,
-      height: 600,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true
-      }
+  try {
+    const res = await net.fetch(WIRE_KEY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `sn=${encodeURIComponent(cleanSn)}`,
+      credentials: 'include',
+      signal: controller.signal
     });
 
-    const finish = (result) => {
-      if (completed) return;
-      completed = true;
-      try {
-        if (!hiddenWin.isDestroyed()) {
-          hiddenWin.destroy();
-        }
-      } catch (e) {
-        // ignore
-      }
-      resolve(result);
+    if (res.status === 401 || res.status === 403) {
+      return {
+        success: false,
+        error: `Authentication failure (HTTP ${res.status}). Make sure you are signed in to Windows with your Renishaw account.`
+      };
+    }
+    if (!res.ok) {
+      return { success: false, error: `HTTP error ${res.status}: ${res.statusText}` };
+    }
+
+    const html = await res.text();
+    const match = html.match(/<p[^>]*\bid=["']phrase["'][^>]*>([\s\S]*?)<\/p>/i);
+    const key = match ? match[1].replace(/<[^>]+>/g, '').trim() : '';
+    if (!key) {
+      return { success: false, error: 'Key phrase not found in the response from spd-apps.' };
+    }
+    return { success: true, key, source: 'spd-apps' };
+  } catch (err) {
+    console.warn('fetch-wire-key failed:', err);
+    return {
+      success: false,
+      error: `Network timeout: could not reach spd-apps (${err.message || 'no response'}). Check you are on the company network or VPN.`
     };
-
-    // Timeout safety: 12 seconds
-    const timeout = setTimeout(() => {
-      finish({
-        success: false,
-        error: 'Timeout waiting for spd-apps response. Check VPN or company network connection.'
-      });
-    }, 12000);
-
-    // Track navigation to extract key phrase once loaded
-    hiddenWin.webContents.on('did-finish-load', async () => {
-      try {
-        const url = hiddenWin.webContents.getURL();
-
-        // Check if we reached the generate response or dashboard
-        const phrase = await hiddenWin.webContents.executeJavaScript(`
-          (() => {
-            const p = document.getElementById('phrase');
-            if (p && p.innerText) return p.innerText.trim();
-            const anyP = document.querySelector('#phrase, p[id="phrase"]');
-            if (anyP && anyP.innerText) return anyP.innerText.trim();
-            // Check text inside body if formatted as 4x6 key
-            const match = document.body.innerText.match(/[A-Z0-9]{6}-[A-Z0-9]{6}-[A-Z0-9]{6}-[A-Z0-9]{6}/);
-            return match ? match[0] : null;
-          })()
-        `);
-
-        if (phrase) {
-          clearTimeout(timeout);
-          return finish({ success: true, key: phrase, source: 'spd-apps' });
-        }
-
-        // If currently on dashboard, submit the form automatically
-        if (url.includes('dashboard') || url.includes('FeaturePermissions')) {
-          const submitted = await hiddenWin.webContents.executeJavaScript(`
-            (() => {
-              const input = document.querySelector('input[name="sn"], input#sn, input[type="text"]');
-              const form = document.querySelector('form[action*="generate"], form');
-              if (input && form) {
-                input.value = ${JSON.stringify(cleanSn)};
-                form.submit();
-                return true;
-              }
-              return false;
-            })()
-          `);
-
-          if (!submitted) {
-            // Alternatively post directly via fetch inside the authenticated session
-            const fetchResult = await hiddenWin.webContents.executeJavaScript(`
-              (async () => {
-                try {
-                  const fd = new URLSearchParams();
-                  fd.append('sn', ${JSON.stringify(cleanSn)});
-                  const res = await fetch('https://spd-apps/FeaturePermissions/generate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    credentials: 'include',
-                    body: fd.toString()
-                  });
-                  const txt = await res.text();
-                  const parser = new DOMParser();
-                  const doc = parser.parseFromString(txt, 'text/html');
-                  const p = doc.getElementById('phrase');
-                  return p ? p.innerText.trim() : null;
-                } catch(e) {
-                  return null;
-                }
-              })()
-            `);
-
-            if (fetchResult) {
-              clearTimeout(timeout);
-              return finish({ success: true, key: fetchResult, source: 'spd-apps' });
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Electron key extraction error:', err);
-      }
-    });
-
-    hiddenWin.webContents.on('did-fail-load', (e, errorCode, errorDescription) => {
-      // Don't fail immediately on redirects or aborts
-      if (errorCode === -3) return; // ABORTED by redirect
-      console.warn('Hidden window fail load:', errorCode, errorDescription);
-    });
-
-    // Load initial dashboard to establish NTLM authentication
-    hiddenWin.loadURL('https://spd-apps/FeaturePermissions/dashboard').catch((err) => {
-      clearTimeout(timeout);
-      finish({
-        success: false,
-        error: `Could not reach https://spd-apps: ${err.message || 'Host unreachable'}`
-      });
-    });
-  });
+  } finally {
+    clearTimeout(timer);
+  }
 });
 
 app.whenReady().then(() => {
