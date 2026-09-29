@@ -26,7 +26,11 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        shell: pwsh
+        run: |
+          Remove-Item package-lock.json -ErrorAction SilentlyContinue
+          Remove-Item node_modules -Recurse -Force -ErrorAction SilentlyContinue
+          npm install
 
       - name: Build web app
         run: npm run build
