@@ -31,9 +31,16 @@ jobs:
       - name: Build web assets and package Windows executable
         run: |
           npm run build
-          npx electron-builder --win nsis portable
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          npx electron-builder --win nsis portable --publish never
+
+      - name: Verify web app is packaged
+        shell: pwsh
+        run: |
+          $list = npx asar list release/win-unpacked/resources/app.asar
+          if (-not ($list | Select-String -Pattern 'web-build.index\.html' -Quiet)) {
+            Write-Error "index.html missing from app.asar"
+            exit 1
+          }
 
       - name: Upload Windows Executable Artifacts
         uses: actions/upload-artifact@v4
