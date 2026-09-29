@@ -19,13 +19,19 @@ function createWindow() {
     icon: path.join(__dirname, 'icon.png')
   });
 
-  // In production load dist/index.html, in dev load local dev server
+  // In production load web-build/index.html, in dev load local dev server
   const isDev = process.env.NODE_ENV === 'development';
   if (isDev) {
     mainWindow.loadURL('http://localhost:3000');
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    const indexPath = path.join(__dirname, '../web-build/index.html');
+    console.log('Loading:', indexPath);
+    mainWindow.loadFile(indexPath);
   }
+
+  mainWindow.webContents.on('did-fail-load', (e, code, desc, url) => {
+    console.error('did-fail-load', code, desc, url);
+  });
 }
 
 // Window control IPC handlers
