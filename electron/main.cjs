@@ -8,11 +8,31 @@ const fs = require('fs');
 app.commandLine.appendSwitch('auth-server-allowlist', 'spd-apps');
 app.commandLine.appendSwitch('auth-server-whitelist', 'spd-apps');
 
+// Explicit Windows Application User Model ID:
+// Required for Windows to correctly display the app in the Taskbar and in
+// Windows "Taskbar Settings > Other system tray icons"
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.digitaltraveller.app');
+}
+
 let mainWindow = null;
 let tray = null;
 let keepAwakeEnabled = false;
 let keepAwakeInterval = null;
 let powerSaveBlockerId = null;
+
+// Helper to reliably load the application icon with embedded fallback
+function getAppIcon() {
+  const iconPath = path.join(__dirname, 'icon.png');
+  if (fs.existsSync(iconPath)) {
+    const img = nativeImage.createFromPath(iconPath);
+    if (!img.isEmpty()) return img;
+  }
+  // High-contrast SVG Renishaw probe icon fallback if file is ever missing
+  return nativeImage.createFromDataURL(
+    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="%232563eb"/><circle cx="32" cy="18" r="8" fill="%23f43f5e"/><rect x="29" y="18" width="6" height="30" rx="3" fill="white"/><rect x="18" y="44" width="28" height="6" rx="2" fill="white"/></svg>'
+  );
+}
 
 // Silently nudges the mouse cursor 1 pixel and returns to reset Windows screensaver/lock timer
 function nudgeMouse() {
@@ -94,8 +114,8 @@ function updateTrayMenu() {
 function createTray() {
   if (tray) return;
 
-  const iconPath = path.join(__dirname, 'icon.png');
-  let trayIcon = fs.existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
+  const appIcon = getAppIcon();
+  const trayIcon = appIcon.resize({ width: 32, height: 32 });
 
   tray = new Tray(trayIcon);
   updateTrayMenu();
@@ -124,6 +144,8 @@ function createTray() {
 }
 
 function createWindow() {
+  const appIcon = getAppIcon();
+
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -131,14 +153,18 @@ function createWindow() {
     minHeight: 700,
     frame: false, // Frameless window to match our custom Windows 11 title bar
     titleBarStyle: 'hidden',
+    icon: appIcon,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: false,
-    },
-    icon: path.join(__dirname, 'icon.png')
+    }
   });
+
+  if (process.platform === 'win32') {
+    mainWindow.setIcon(appIcon);
+  }
 
   createTray();
 
