@@ -1,7 +1,7 @@
 {
   "name": "digital-traveller",
   "private": true,
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Digital Traveller QA & Calibration Workflow App",
   "author": "Renishaw",
   "type": "module",

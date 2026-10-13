@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain, dialog, net, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, net, Tray, Menu, nativeImage, powerSaveBlocker } = require('electron');
+const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -9,15 +10,53 @@ app.commandLine.appendSwitch('auth-server-whitelist', 'spd-apps');
 
 let mainWindow = null;
 let tray = null;
+let keepAwakeEnabled = false;
+let keepAwakeInterval = null;
+let powerSaveBlockerId = null;
 
-function createTray() {
-  if (tray) return;
+// Silently nudges the mouse cursor 1 pixel and returns to reset Windows screensaver/lock timer
+function nudgeMouse() {
+  if (process.platform === 'win32') {
+    const psCmd = 'Add-Type -AssemblyName System.Windows.Forms; $p = [System.Windows.Forms.Cursor]::Position; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(($p.X + 1), $p.Y); Start-Sleep -Milliseconds 40; [System.Windows.Forms.Cursor]::Position = $p';
+    exec(`powershell -NoProfile -NonInteractive -WindowStyle Hidden -Command "${psCmd}"`, { windowsHide: true }, (err) => {
+      if (err) {
+        console.warn('Mouse nudge notice:', err.message);
+      }
+    });
+  }
+}
 
-  const iconPath = path.join(__dirname, 'icon.png');
-  let trayIcon = fs.existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
+function setKeepAwake(enabled) {
+  keepAwakeEnabled = enabled;
 
-  tray = new Tray(trayIcon);
-  tray.setToolTip('Digital Traveller');
+  if (keepAwakeInterval) {
+    clearInterval(keepAwakeInterval);
+    keepAwakeInterval = null;
+  }
+
+  if (powerSaveBlockerId !== null) {
+    if (powerSaveBlocker.isStarted(powerSaveBlockerId)) {
+      powerSaveBlocker.stop(powerSaveBlockerId);
+    }
+    powerSaveBlockerId = null;
+  }
+
+  if (keepAwakeEnabled) {
+    // Prevent display and system sleep
+    powerSaveBlockerId = powerSaveBlocker.start('prevent-display-sleep');
+
+    // Nudge mouse immediately once, then every 5 minutes (300,000 ms)
+    nudgeMouse();
+    keepAwakeInterval = setInterval(() => {
+      nudgeMouse();
+    }, 5 * 60 * 1000);
+  }
+
+  updateTrayMenu();
+}
+
+function updateTrayMenu() {
+  if (!tray) return;
 
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -31,7 +70,16 @@ function createTray() {
     },
     { type: 'separator' },
     {
-      label: 'Quit',
+      label: 'Keep PC awake',
+      type: 'checkbox',
+      checked: keepAwakeEnabled,
+      click: (menuItem) => {
+        setKeepAwake(menuItem.checked);
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit Digital Traveller',
       click: () => {
         app.isQuitting = true;
         app.quit();
@@ -40,6 +88,17 @@ function createTray() {
   ]);
 
   tray.setContextMenu(contextMenu);
+  tray.setToolTip(keepAwakeEnabled ? 'Digital Traveller (Keep PC Awake: ON)' : 'Digital Traveller');
+}
+
+function createTray() {
+  if (tray) return;
+
+  const iconPath = path.join(__dirname, 'icon.png');
+  let trayIcon = fs.existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
+
+  tray = new Tray(trayIcon);
+  updateTrayMenu();
 
   tray.on('click', () => {
     if (mainWindow) {
@@ -83,6 +142,14 @@ function createWindow() {
 
   createTray();
 
+  // Closing the window hides it to the persistent tray instead of quitting
+  mainWindow.on('close', (event) => {
+    if (!app.isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
+
   // In production load web-build/index.html, in dev load local dev server
   const isDev = process.env.NODE_ENV === 'development';
   if (isDev) {
@@ -125,7 +192,8 @@ ipcMain.on('window-maximize', (event) => {
 
 ipcMain.on('window-close', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
-  win?.close();
+  // Hide to persistent system tray instead of closing app
+  win?.hide();
 });
 
 // Direct Network Share File System handlers (Direct UNC / Mapped drive access)
@@ -240,6 +308,12 @@ app.whenReady().then(() => {
   });
 });
 
+app.on('before-quit', () => {
+  app.isQuitting = true;
+});
+
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (app.isQuitting) {
+    app.quit();
+  }
 });
