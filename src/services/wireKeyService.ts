@@ -112,9 +112,17 @@ export class WireKeyService {
     // that cannot work from inside the app.
     const desktopApi = typeof window !== 'undefined' ? (window as any).desktopAPI : undefined;
     if (desktopApi?.fetchWireKey) {
-      const desktopRes = await desktopApi.fetchWireKey(cleanSn);
+      let desktopRes = await desktopApi.fetchWireKey(cleanSn);
       if (desktopRes && desktopRes.success && desktopRes.key) {
         return desktopRes.key;
+      }
+      // If the first request established the session but was missing phrase, silently retry immediately
+      if (desktopRes?.error && desktopRes.error.includes('Key phrase not found')) {
+        await new Promise((r) => setTimeout(r, 400));
+        desktopRes = await desktopApi.fetchWireKey(cleanSn);
+        if (desktopRes && desktopRes.success && desktopRes.key) {
+          return desktopRes.key;
+        }
       }
       throw new Error(desktopRes?.error || 'Network timeout: no response from spd-apps.');
     }

@@ -69,8 +69,19 @@ export const WireKeyModal: React.FC<WireKeyModalProps> = ({
     setApplied(false);
 
     try {
-      // Call GetWireKey(serialNumber)
-      const key = await WireKeyService.GetWireKey(cleanSn);
+      let key: string;
+      try {
+        // Call GetWireKey(serialNumber)
+        key = await WireKeyService.GetWireKey(cleanSn);
+      } catch (firstErr: any) {
+        if (firstErr?.message?.includes('Key phrase not found')) {
+          // Hide message and automatically send a second request
+          await new Promise((r) => setTimeout(r, 400));
+          key = await WireKeyService.GetWireKey(cleanSn);
+        } else {
+          throw firstErr;
+        }
+      }
       setGeneratedKey(key);
       setIsSimulatedOffline(false);
       setErrorType(null);

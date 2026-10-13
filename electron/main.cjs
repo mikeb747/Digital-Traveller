@@ -102,43 +102,64 @@ ipcMain.handle('fetch-wire-key', async (event, serialNumber) => {
     return { success: false, error: 'Empty serial number provided.' };
   }
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10000);
+  const querySpdApps = async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    try {
+      const res = await net.fetch(WIRE_KEY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `sn=${encodeURIComponent(cleanSn)}`,
+        credentials: 'include',
+        signal: controller.signal
+      });
+
+      if (res.status === 401 || res.status === 403) {
+        return {
+          success: false,
+          authError: true,
+          error: `Authentication failure (HTTP ${res.status}). Make sure you are signed in to Windows with your Renishaw account.`
+        };
+      }
+      if (!res.ok) {
+        return { success: false, error: `HTTP error ${res.status}: ${res.statusText}` };
+      }
+
+      const html = await res.text();
+      const match = html.match(/<p[^>]*\bid=["']phrase["'][^>]*>([\s\S]*?)<\/p>/i);
+      const key = match ? match[1].replace(/<[^>]+>/g, '').trim() : '';
+      if (!key) {
+        return { success: false, missingPhrase: true, error: 'Key phrase not found in the response from spd-apps.' };
+      }
+      return { success: true, key, source: 'spd-apps' };
+    } finally {
+      clearTimeout(timer);
+    }
+  };
 
   try {
-    const res = await net.fetch(WIRE_KEY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `sn=${encodeURIComponent(cleanSn)}`,
-      credentials: 'include',
-      signal: controller.signal
-    });
-
-    if (res.status === 401 || res.status === 403) {
-      return {
-        success: false,
-        error: `Authentication failure (HTTP ${res.status}). Make sure you are signed in to Windows with your Renishaw account.`
-      };
-    }
-    if (!res.ok) {
-      return { success: false, error: `HTTP error ${res.status}: ${res.statusText}` };
+    // Attempt 1: First request establishes/negotiates NTLM/Kerberos session credentials
+    let result = await querySpdApps();
+    if (result.success) {
+      return result;
     }
 
-    const html = await res.text();
-    const match = html.match(/<p[^>]*\bid=["']phrase["'][^>]*>([\s\S]*?)<\/p>/i);
-    const key = match ? match[1].replace(/<[^>]+>/g, '').trim() : '';
-    if (!key) {
-      return { success: false, error: 'Key phrase not found in the response from spd-apps.' };
+    // If <p id="phrase"> was missing/empty on initial handshake, automatically retry second request
+    if (result.missingPhrase) {
+      await new Promise((r) => setTimeout(r, 400));
+      result = await querySpdApps();
+      if (result.success) {
+        return result;
+      }
     }
-    return { success: true, key, source: 'spd-apps' };
+
+    return result;
   } catch (err) {
     console.warn('fetch-wire-key failed:', err);
     return {
       success: false,
       error: `Network timeout: could not reach spd-apps (${err.message || 'no response'}). Check you are on the company network or VPN.`
     };
-  } finally {
-    clearTimeout(timer);
   }
 });
 
