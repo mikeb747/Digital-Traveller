@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, net } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, net, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -7,8 +7,65 @@ const fs = require('fs');
 app.commandLine.appendSwitch('auth-server-allowlist', 'spd-apps');
 app.commandLine.appendSwitch('auth-server-whitelist', 'spd-apps');
 
+let mainWindow = null;
+let tray = null;
+
+function createTray() {
+  if (tray) return;
+
+  const iconPath = path.join(__dirname, 'icon.png');
+  let trayIcon = fs.existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
+
+  tray = new Tray(trayIcon);
+  tray.setToolTip('Digital Traveller');
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Open Digital Traveller',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        app.isQuitting = true;
+        app.quit();
+      }
+    }
+  ]);
+
+  tray.setContextMenu(contextMenu);
+
+  tray.on('click', () => {
+    if (mainWindow) {
+      if (mainWindow.isVisible()) {
+        if (mainWindow.isFocused()) {
+          mainWindow.hide();
+        } else {
+          mainWindow.focus();
+        }
+      } else {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    }
+  });
+
+  tray.on('double-click', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
 function createWindow() {
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
     minWidth: 1024,
@@ -23,6 +80,8 @@ function createWindow() {
     },
     icon: path.join(__dirname, 'icon.png')
   });
+
+  createTray();
 
   // In production load web-build/index.html, in dev load local dev server
   const isDev = process.env.NODE_ENV === 'development';
@@ -43,6 +102,16 @@ function createWindow() {
 ipcMain.on('window-minimize', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   win?.minimize();
+});
+
+ipcMain.on('window-minimize-to-tray', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    if (!tray) {
+      createTray();
+    }
+    win.hide();
+  }
 });
 
 ipcMain.on('window-maximize', (event) => {

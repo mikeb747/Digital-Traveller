@@ -4,6 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('desktopAPI', {
   isElectron: true,
   minimize: () => ipcRenderer.send('window-minimize'),
+  minimizeToTray: () => ipcRenderer.send('window-minimize-to-tray'),
   maximize: () => ipcRenderer.send('window-maximize'),
   close: () => ipcRenderer.send('window-close'),
   readNetworkFile: (filePath) => ipcRenderer.invoke('read-network-file', filePath),

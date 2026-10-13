@@ -1,5 +1,5 @@
 import React from 'react';
-import { Minus, Square, X, Cpu, Sun, Moon, Settings } from 'lucide-react';
+import { Minus, Square, X, Cpu, Sun, Moon, Settings, ArrowDownToLine } from 'lucide-react';
 import { SystemType } from '../types/traveller';
 
 interface WindowFrameProps {
@@ -19,13 +19,18 @@ interface WindowFrameProps {
 
 // Bridge exposed by electron/preload.cjs (undefined when running in a normal browser)
 const desktop = () => (window as any).desktopAPI as
-  | { minimize: () => void; maximize: () => void; close: () => void }
+  | {
+      minimize: () => void;
+      minimizeToTray?: () => void;
+      maximize: () => void;
+      close: () => void;
+    }
   | undefined;
 
 export const WindowFrame: React.FC<WindowFrameProps> = ({
   system,
   serialNumber,
-  version = 'v1.0.6',
+  version = 'v1.0.7',
   theme,
   isAdmin = false,
   children,
@@ -155,6 +160,25 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
             }`}
           >
             {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+
+          {/* Minimize to System Tray */}
+          <button
+            type="button"
+            title="Minimize to System Tray"
+            onClick={() => {
+              const api = desktop();
+              if (api?.minimizeToTray) {
+                api.minimizeToTray();
+              } else if (api) {
+                api.minimize();
+              }
+            }}
+            className={`h-10 px-3 transition-colors flex items-center justify-center ${
+              isDark ? 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/80' : 'text-slate-600 hover:text-black hover:bg-slate-300/80'
+            }`}
+          >
+            <ArrowDownToLine className="w-3.5 h-3.5" />
           </button>
 
           {/* Minimize */}
