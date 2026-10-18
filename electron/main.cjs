@@ -253,6 +253,75 @@ ipcMain.handle('select-network-directory', async (event) => {
   return result.filePaths[0];
 });
 
+ipcMain.handle('create-laser-grating-files', async (event, request) => {
+  try {
+    const serialNumber = typeof request?.serialNumber === 'string'
+      ? request.serialNumber.trim()
+      : '';
+    const invalidFolderCharacters = /[<>:"/\\|?*\u0000-\u001f]/;
+    if (
+      !serialNumber ||
+      serialNumber === '.' ||
+      serialNumber === '..' ||
+      invalidFolderCharacters.test(serialNumber) ||
+      /[. ]$/.test(serialNumber)
+    ) {
+      return { success: false, error: 'Enter a valid system serial number before creating files.' };
+    }
+
+    if (!Array.isArray(request?.combinations) || request.combinations.length === 0) {
+      return { success: false, error: 'Add at least one laser and grating combination first.' };
+    }
+
+    const fileNames = new Set();
+    for (const combination of request.combinations) {
+      const wavelength = Number(combination?.wavelengthNm);
+      const gratingDensity = Number(combination?.gratingDensityLinesPerMm);
+      if (
+        !Number.isFinite(wavelength) ||
+        wavelength <= 0 ||
+        !Number.isInteger(gratingDensity) ||
+        gratingDensity <= 0
+      ) {
+        return {
+          success: false,
+          error: 'Each row must have a positive wavelength and a positive whole-number grating density.'
+        };
+      }
+      fileNames.add(`${wavelength}nm_${gratingDensity}.txt`);
+    }
+
+    const extraDataDirectory = path.join(app.getPath('documents'), serialNumber, 'Extra Data');
+    const targetPaths = [...fileNames].map((fileName) => path.join(extraDataDirectory, fileName));
+    const conflicts = [];
+
+    for (const targetPath of targetPaths) {
+      try {
+        await fs.promises.access(targetPath, fs.constants.F_OK);
+        conflicts.push(targetPath);
+      } catch (err) {
+        if (err.code !== 'ENOENT') throw err;
+      }
+    }
+
+    if (conflicts.length > 0 && request.overwrite !== true) {
+      return { success: false, conflicts };
+    }
+
+    await fs.promises.mkdir(extraDataDirectory, { recursive: true });
+    for (const targetPath of targetPaths) {
+      await fs.promises.writeFile(targetPath, '', {
+        flag: request.overwrite === true ? 'w' : 'wx'
+      });
+    }
+
+    return { success: true, files: targetPaths };
+  } catch (err) {
+    console.error('Failed to create laser/grating files:', err);
+    return { success: false, error: `Could not create the files: ${err.message}` };
+  }
+});
+
 // Automatic WiRE Key fetch.
 // POSTs sn=<serial> to spd-apps using the signed-in Windows user's credentials and reads
 // <p id="phrase">KEY</p> from the HTML response. Runs in the main process, so browser

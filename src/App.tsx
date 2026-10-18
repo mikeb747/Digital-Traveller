@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { TravellerRecord, WorkflowStep, SystemType, WorkflowStage, StepStatus } from './types/traveller';
+import {
+  LaserGratingCombination,
+  LaserGratingFileResult,
+  TravellerRecord,
+  WorkflowStep,
+  SystemType,
+  WorkflowStage,
+  StepStatus
+} from './types/traveller';
 import { StorageService } from './services/storageService';
 import { WorkflowService } from './services/workflowService';
 import { WindowFrame } from './components/WindowFrame';
@@ -338,6 +346,38 @@ export const App: React.FC = () => {
     setNotification(`Workflows loaded: ${newSteps.length} steps across ${newStages.length} tabs`);
   };
 
+  const handleUpdateLaserGratingCombinations = (combinations: LaserGratingCombination[]) => {
+    setTraveller((prev) => ({
+      ...prev,
+      laserGratingCombinations: combinations,
+      updatedAt: new Date().toISOString()
+    }));
+  };
+
+  const handleCreateLaserGratingFiles = async (
+    overwrite: boolean
+  ): Promise<LaserGratingFileResult> => {
+    const createFiles = window.desktopAPI?.createLaserGratingFiles;
+    if (!createFiles) {
+      return {
+        success: false,
+        error: 'Creating files in My Documents is available in the Windows desktop app only.'
+      };
+    }
+
+    const result = await createFiles(
+      traveller.serialNumber,
+      traveller.laserGratingCombinations || [],
+      overwrite
+    );
+    if (result.success) {
+      setNotification(
+        `Created ${result.files.length} blank file(s) in My Documents\\${traveller.serialNumber}\\Extra Data`
+      );
+    }
+    return result;
+  };
+
   return (
     <WindowFrame
       system={traveller.system}
@@ -437,6 +477,10 @@ export const App: React.FC = () => {
         onUpdateStatus={handleUpdateStepStatus}
         onToggleChecklist={handleToggleChecklist}
         onUpdateMeasurement={handleUpdateMeasurement}
+        serialNumber={traveller.serialNumber}
+        laserGratingCombinations={traveller.laserGratingCombinations || []}
+        onUpdateLaserGratingCombinations={handleUpdateLaserGratingCombinations}
+        onCreateLaserGratingFiles={handleCreateLaserGratingFiles}
       />
 
       {/* Barcode & Unit Details Scanner Modal Dialog */}

@@ -63,6 +63,10 @@ The application features a built-in **Excel Hub** (accessed via the top title ba
 - **Bi-Directional Synchronization**: Load an existing or edited `.xlsx` file from your network share (`\\nas-prod\Renishaw\...` or mapped drive `Z:\...`) to automatically sync test results and step completions back into the digital traveller.
 - **Desktop File System Privileges**: When compiled as an Electron executable, it can directly read and write files over your local network share without browser prompt dialogs.
 
+## 🔬 Laser & Grating Calibration Files
+
+In the **Calibration** stage, enter each laser wavelength and grating density combination, then open **Create Extra Data Files** to create one blank `.txt` file per combination. Files are saved under `My Documents\<serial number>\Extra Data` using names such as `532nm_2400.txt`. If any target file already exists, the app asks before replacing it. A traveller serial number is required.
+
 ---
 
 ## 🐛 Known Issues & Bug Tracker

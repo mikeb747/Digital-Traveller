@@ -5,6 +5,16 @@ export type WorkflowStage = string;
 
 export type StepStatus = 'Not Started' | 'In Progress' | 'Complete';
 
+export interface LaserGratingCombination {
+  wavelengthNm: string;
+  gratingDensityLinesPerMm: string;
+}
+
+export type LaserGratingFileResult =
+  | { success: true; files: string[] }
+  | { success: false; conflicts: string[] }
+  | { success: false; error: string };
+
 export interface WorkflowStep {
   id: string;
   name: string;
@@ -33,6 +43,7 @@ export interface TravellerRecord {
   activeStage: WorkflowStage;
   stages?: string[];
   steps: WorkflowStep[];
+  laserGratingCombinations?: LaserGratingCombination[];
   auditLog: {
     timestamp: string;
     action: string;

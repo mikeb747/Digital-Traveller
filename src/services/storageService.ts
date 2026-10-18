@@ -1,6 +1,10 @@
 import { TravellerRecord, SystemType, WorkflowStep } from '../types/traveller';
 import { SYSTEM_PROFILES } from './defaultWorkflows';
 import { WorkflowTemplateService } from './workflowTemplateService';
+import {
+  LASER_GRATING_FILES_STEP_NAME,
+  LASER_GRATING_SELECTION_STEP_NAME
+} from './laserGratingWorkflow';
 
 const STORAGE_KEY_CURRENT = 'digital_traveller_current_record';
 const STORAGE_KEY_RECORDS = 'digital_traveller_records_history';
@@ -70,6 +74,7 @@ export class StorageService {
       activeStage: template.stages[0] || 'Setup',
       stages: [...template.stages],
       steps,
+      laserGratingCombinations: [],
       auditLog: [
         {
           timestamp: now,
@@ -112,10 +117,10 @@ export class StorageService {
       if (data) {
         const parsed = JSON.parse(data) as TravellerRecord;
         if (parsed && Array.isArray(parsed.steps)) {
-          return {
+          return this.ensureWorkflowSteps({
             ...parsed,
             system: normalizedSystem
-          };
+          });
         }
       }
     } catch (e) {
@@ -143,7 +148,7 @@ export class StorageService {
           if (!parsed.operatorName && lastTech) {
             parsed.operatorName = lastTech;
           }
-          return parsed;
+          return this.ensureWorkflowSteps(parsed);
         }
       }
     } catch (e) {
@@ -241,6 +246,44 @@ export class StorageService {
     if ((parsed.system as string).toLowerCase() === 'invia') {
       parsed.system = 'inVia';
     }
-    return parsed as TravellerRecord;
+    return this.ensureWorkflowSteps(parsed as TravellerRecord);
+  }
+
+  private static ensureWorkflowSteps(record: TravellerRecord): TravellerRecord {
+    const template = WorkflowTemplateService.getTemplate(record.system);
+    const requiredStepNames = new Set([
+      LASER_GRATING_SELECTION_STEP_NAME,
+      LASER_GRATING_FILES_STEP_NAME
+    ]);
+    const existingNames = new Set(record.steps.map((step) => step.name));
+    const missingSteps = template.steps
+      .filter((step) => requiredStepNames.has(step.name) && !existingNames.has(step.name))
+      .map((step, index): WorkflowStep => ({
+        ...step,
+        id: `step-${record.system}-laser-grating-${Date.now().toString(36)}-${index}`,
+        status: 'Not Started',
+        completedAt: null,
+        startedAt: null,
+        technician: '',
+        notes: '',
+        checklist: step.checklist?.map((item) => ({ ...item, done: false })) || [],
+        measuredData: step.measuredData?.map((item) => ({ ...item, value: '' })) || []
+      }));
+
+    return {
+      ...record,
+      stages: Array.from(new Set([...(record.stages || template.stages), 'Calibration'])),
+      steps: [...record.steps, ...missingSteps],
+      laserGratingCombinations: Array.isArray(record.laserGratingCombinations)
+        ? record.laserGratingCombinations.map((combination) => ({
+            wavelengthNm:
+              typeof combination?.wavelengthNm === 'string' ? combination.wavelengthNm : '',
+            gratingDensityLinesPerMm:
+              typeof combination?.gratingDensityLinesPerMm === 'string'
+                ? combination.gratingDensityLinesPerMm
+                : ''
+          }))
+        : []
+    };
   }
 }

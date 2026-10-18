@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { WorkflowStep, StepStatus } from '../types/traveller';
+import {
+  LaserGratingCombination,
+  LaserGratingFileResult,
+  WorkflowStep,
+  StepStatus
+} from '../types/traveller';
 import { StorageService } from '../services/storageService';
+import {
+  LASER_GRATING_FILES_STEP_NAME,
+  LASER_GRATING_SELECTION_STEP_NAME,
+  validateLaserGratingCombinations
+} from '../services/laserGratingWorkflow';
+import { LaserGratingStepPanel } from './LaserGratingStepPanel';
 import { 
   X, CheckCircle, Clock, RotateCcw, AlertTriangle, FileText, 
   CheckSquare, Square, Check, UserCheck, User, KeyRound 
@@ -15,6 +26,10 @@ interface StepDialogProps {
   onUpdateStatus: (stepId: string, status: StepStatus, notes?: string, technician?: string) => void;
   onToggleChecklist: (stepId: string, checklistId: string) => void;
   onUpdateMeasurement: (stepId: string, paramIndex: number, value: string) => void;
+  serialNumber: string;
+  laserGratingCombinations: LaserGratingCombination[];
+  onUpdateLaserGratingCombinations: (combinations: LaserGratingCombination[]) => void;
+  onCreateLaserGratingFiles: (overwrite: boolean) => Promise<LaserGratingFileResult>;
 }
 
 export const StepDialog: React.FC<StepDialogProps> = ({
@@ -25,19 +40,27 @@ export const StepDialog: React.FC<StepDialogProps> = ({
   onOpenWireKey,
   onUpdateStatus,
   onToggleChecklist,
-  onUpdateMeasurement
+  onUpdateMeasurement,
+  serialNumber,
+  laserGratingCombinations,
+  onUpdateLaserGratingCombinations,
+  onCreateLaserGratingFiles
 }) => {
   if (!isOpen || !step) return null;
 
   const [notes, setNotes] = useState(step.notes || '');
+  const [completionError, setCompletionError] = useState<string | null>(null);
   const [signoffTechnician, setSignoffTechnician] = useState(
     step.technician || operatorName || 'M. Brown'
   );
+  const isLaserSelectionStep = step.name === LASER_GRATING_SELECTION_STEP_NAME;
+  const isLaserFilesStep = step.name === LASER_GRATING_FILES_STEP_NAME;
 
   // Keep notes and technician synchronized when step changes
   useEffect(() => {
     setNotes(step.notes || '');
     setSignoffTechnician(step.technician || operatorName || 'M. Brown');
+    setCompletionError(null);
   }, [step, operatorName]);
 
   // Press Escape on keyboard to close without completing
@@ -55,6 +78,19 @@ export const StepDialog: React.FC<StepDialogProps> = ({
   }, [notes, step, signoffTechnician]);
 
   const handleMarkComplete = () => {
+    if (isLaserSelectionStep) {
+      const validationError = validateLaserGratingCombinations(laserGratingCombinations);
+      if (validationError) {
+        setCompletionError(validationError);
+        return;
+      }
+    }
+    setCompletionError(null);
+    onUpdateStatus(step.id, 'Complete', notes, signoffTechnician);
+    onClose();
+  };
+
+  const handleLaserFilesCreated = () => {
     onUpdateStatus(step.id, 'Complete', notes, signoffTechnician);
     onClose();
   };
@@ -154,6 +190,24 @@ export const StepDialog: React.FC<StepDialogProps> = ({
               )}
             </div>
           </div>
+
+          {(isLaserSelectionStep || isLaserFilesStep) && (
+            <LaserGratingStepPanel
+              mode={isLaserSelectionStep ? 'selection' : 'files'}
+              serialNumber={serialNumber}
+              combinations={laserGratingCombinations}
+              onChange={onUpdateLaserGratingCombinations}
+              onCreateFiles={onCreateLaserGratingFiles}
+              onComplete={handleLaserFilesCreated}
+            />
+          )}
+
+          {completionError && (
+            <p className="flex items-center gap-2 text-xs text-amber-300">
+              <AlertTriangle className="h-4 w-4" />
+              {completionError}
+            </p>
+          )}
 
           {/* Verification Checklist */}
           {step.checklist && step.checklist.length > 0 && (
@@ -307,14 +361,16 @@ export const StepDialog: React.FC<StepDialogProps> = ({
               Close Without Completing
             </button>
 
-            <button
-              type="button"
-              onClick={handleMarkComplete}
-              className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/30 flex items-center space-x-1.5 transition-all"
-            >
-              <CheckCircle className="w-3.5 h-3.5" />
-              <span>Mark Complete</span>
-            </button>
+            {!isLaserFilesStep && (
+              <button
+                type="button"
+                onClick={handleMarkComplete}
+                className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/30 flex items-center space-x-1.5 transition-all"
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+                <span>Mark Complete</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

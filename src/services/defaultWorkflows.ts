@@ -1,4 +1,8 @@
 import { SystemProfile, SystemType } from '../types/traveller';
+import {
+  LASER_GRATING_FILES_STEP_NAME,
+  LASER_GRATING_SELECTION_STEP_NAME
+} from './laserGratingWorkflow';
 
 export const SYSTEM_PROFILES: Record<SystemType, SystemProfile> = {
   inVia: {
@@ -52,8 +56,23 @@ export const SYSTEM_PROFILES: Record<SystemType, SystemProfile> = {
           { id: 'c7', label: 'Confocal pinhole motorized centering calibrated', done: false }
         ]
       },
-
       // CALIBRATION
+      {
+        name: LASER_GRATING_SELECTION_STEP_NAME,
+        stage: 'Calibration',
+        instructions: [
+          'Enter each laser wavelength in nm and grating density in lines/mm.',
+          'Add one row for each laser and grating combination used for calibration.'
+        ]
+      },
+      {
+        name: LASER_GRATING_FILES_STEP_NAME,
+        stage: 'Calibration',
+        instructions: [
+          'Create one blank .txt file for each laser and grating combination.',
+          'Files are saved in My Documents/<serial number>/Extra Data.'
+        ]
+      },
       {
         name: 'Silicon Internal Reference Standard 520.7 cm⁻¹',
         stage: 'Calibration',
@@ -177,6 +196,22 @@ export const SYSTEM_PROFILES: Record<SystemType, SystemProfile> = {
 
       // CALIBRATION
       {
+        name: LASER_GRATING_SELECTION_STEP_NAME,
+        stage: 'Calibration',
+        instructions: [
+          'Enter each laser wavelength in nm and grating density in lines/mm.',
+          'Add one row for each laser and grating combination used for calibration.'
+        ]
+      },
+      {
+        name: LASER_GRATING_FILES_STEP_NAME,
+        stage: 'Calibration',
+        instructions: [
+          'Create one blank .txt file for each laser and grating combination.',
+          'Files are saved in My Documents/<serial number>/Extra Data.'
+        ]
+      },
+      {
         name: 'Automated Internal Reference Calibration',
         stage: 'Calibration',
         instructions: [
@@ -271,6 +306,22 @@ export const SYSTEM_PROFILES: Record<SystemType, SystemProfile> = {
       },
 
       // CALIBRATION
+      {
+        name: LASER_GRATING_SELECTION_STEP_NAME,
+        stage: 'Calibration',
+        instructions: [
+          'Enter each laser wavelength in nm and grating density in lines/mm.',
+          'Add one row for each laser and grating combination used for calibration.'
+        ]
+      },
+      {
+        name: LASER_GRATING_FILES_STEP_NAME,
+        stage: 'Calibration',
+        instructions: [
+          'Create one blank .txt file for each laser and grating combination.',
+          'Files are saved in My Documents/<serial number>/Extra Data.'
+        ]
+      },
       {
         name: 'Correlative Coordinate Transformation (SEM-Raman)',
         stage: 'Calibration',

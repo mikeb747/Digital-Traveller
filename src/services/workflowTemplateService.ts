@@ -1,6 +1,10 @@
 import { SystemType, WorkflowStep, WorkflowStage } from '../types/traveller';
 import { SYSTEM_PROFILES } from './defaultWorkflows';
 import { SystemRegistryService } from './systemRegistryService';
+import {
+  LASER_GRATING_FILES_STEP_NAME,
+  LASER_GRATING_SELECTION_STEP_NAME
+} from './laserGratingWorkflow';
 
 export interface WorkflowTemplateItem {
   name: string;
@@ -41,6 +45,30 @@ export class WorkflowTemplateService {
       if (stored) {
         const parsed = JSON.parse(stored) as WorkflowTemplate;
         if (parsed && Array.isArray(parsed.stages) && Array.isArray(parsed.steps)) {
+          const requiredStepNames = new Set([
+            LASER_GRATING_SELECTION_STEP_NAME,
+            LASER_GRATING_FILES_STEP_NAME
+          ]);
+          const requiredSteps = (SYSTEM_PROFILES[normalizedSystem]?.defaultSteps || [])
+            .filter((step) => requiredStepNames.has(step.name));
+          const missingSteps = requiredSteps.filter(
+            (required) => !parsed.steps.some((step) => step.name === required.name)
+          );
+
+          if (missingSteps.length > 0) {
+            const updatedTemplate: WorkflowTemplate = {
+              ...parsed,
+              stages: Array.from(new Set([...parsed.stages, 'Calibration'])),
+              steps: [...parsed.steps, ...missingSteps.map((step) => ({
+                ...step,
+                instructions: [...step.instructions],
+                checklist: step.checklist?.map((item) => ({ ...item })),
+                measuredData: step.measuredData?.map((item) => ({ ...item }))
+              }))]
+            };
+            this.saveTemplate(updatedTemplate);
+            return updatedTemplate;
+          }
           return parsed;
         }
       }
