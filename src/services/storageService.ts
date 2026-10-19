@@ -226,23 +226,23 @@ export class StorageService {
     } catch (e) {
       console.error(e);
     }
+  }
 
-    static getSaveLocation(): string {
-      return localStorage.getItem(STORAGE_KEY_SAVE_LOCATION) || '';
-    }
+  static getSaveLocation(): string {
+    return localStorage.getItem(STORAGE_KEY_SAVE_LOCATION) || '';
+  }
 
-    static setSaveLocation(location: string): void {
-      try {
-        const trimmed = location.trim();
-        if (trimmed) {
-          localStorage.setItem(STORAGE_KEY_SAVE_LOCATION, trimmed);
-        } else {
-          localStorage.removeItem(STORAGE_KEY_SAVE_LOCATION);
-        }
-      } catch (e) {
-        console.error('Failed to save file location', e);
-        throw e;
+  static setSaveLocation(location: string): void {
+    try {
+      const trimmed = location.trim();
+      if (trimmed) {
+        localStorage.setItem(STORAGE_KEY_SAVE_LOCATION, trimmed);
+      } else {
+        localStorage.removeItem(STORAGE_KEY_SAVE_LOCATION);
       }
+    } catch (e) {
+      console.error('Failed to save file location', e);
+      throw e;
     }
   }
 
