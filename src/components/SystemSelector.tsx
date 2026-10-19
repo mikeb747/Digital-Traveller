@@ -2,7 +2,7 @@ import React from 'react';
 import { SystemType } from '../types/traveller';
 import { SYSTEM_PROFILES } from '../services/defaultWorkflows';
 import { SystemRegistryService } from '../services/systemRegistryService';
-import { SlidersHorizontal, CheckCircle2, User, Briefcase, Tag, KeyRound } from 'lucide-react';
+import { SlidersHorizontal, CheckCircle2, User, Briefcase, Tag } from 'lucide-react';
 import { TechSelector } from './TechSelector';
 
 interface SystemSelectorProps {
@@ -16,8 +16,6 @@ interface SystemSelectorProps {
   isAdmin: boolean;
   theme?: 'dark' | 'light';
   onSelectSystem: (system: SystemType) => void;
-  onOpenBarcodeModal: () => void;
-  onOpenWireKey?: () => void;
   onChangeOperator: (name: string, isAdmin: boolean) => void;
 }
 
@@ -32,8 +30,6 @@ export const SystemSelector: React.FC<SystemSelectorProps> = ({
   isAdmin,
   theme = 'dark',
   onSelectSystem,
-  onOpenBarcodeModal,
-  onOpenWireKey,
   onChangeOperator
 }) => {
   const profile = SYSTEM_PROFILES[currentSystem] || SYSTEM_PROFILES['inVia'];
@@ -89,57 +85,38 @@ export const SystemSelector: React.FC<SystemSelectorProps> = ({
         </div>
       </div>
 
-      {/* Right: Hardware Identification & Tech Dropdown (Scan Barcode / Serial button removed, handled in Enter S/N box) */}
+      {/* Right: System details summary and technician selector */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 text-xs">
-        {/* System Serial Number (Blank until entered - click to open barcode / serial / details modal) */}
+        {/* System serial number summary */}
         <div
-          onClick={onOpenBarcodeModal}
-          className={`flex items-center rounded border px-2.5 py-1 cursor-pointer transition-colors ${
+          className={`flex items-center rounded border px-2.5 py-1 transition-colors ${
             !serialNumber
               ? isDark
-                ? 'bg-amber-950/20 border-amber-800/60 hover:border-amber-500'
-                : 'bg-amber-50 border-amber-300 hover:border-amber-500'
+                ? 'bg-amber-950/20 border-amber-800/60'
+                : 'bg-amber-50 border-amber-300'
               : isDark
-              ? 'bg-slate-950/80 border-slate-800 hover:border-slate-700'
-              : 'bg-white border-slate-300 hover:border-slate-400'
+              ? 'bg-slate-950/80 border-slate-800'
+              : 'bg-white border-slate-300'
           }`}
-          title={serialNumber ? 'Click to edit Serial Number, Customer, Job, and Part Number' : 'Click to enter System S/N and details'}
+          title="System serial number"
         >
           <span className="text-slate-400 text-[11px] mr-1.5 font-medium">S/N:</span>
           {serialNumber ? (
             <span className="font-mono font-semibold text-blue-500">{serialNumber}</span>
           ) : (
-            <span className="font-mono text-[11px] text-amber-500 italic">[Enter S/N]</span>
+            <span className="font-mono text-[11px] text-slate-500 italic">Not recorded</span>
           )}
         </div>
-
-        {/* [Get WiRE Key] Button */}
-        {onOpenWireKey && (
-          <button
-            type="button"
-            onClick={onOpenWireKey}
-            className={`flex items-center space-x-1.5 px-2.5 py-1 rounded border text-xs font-semibold shadow-xs transition-all ${
-              isDark
-                ? 'bg-indigo-950/50 border-indigo-700/70 text-indigo-300 hover:bg-indigo-900/60 hover:text-white hover:border-indigo-500'
-                : 'bg-indigo-50 border-indigo-300 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900'
-            }`}
-            title="Generate WiRE Feature Permission Key from spd-apps"
-          >
-            <KeyRound className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Get WiRE Key</span>
-          </button>
-        )}
 
         {/* Customer Name (if defined) */}
         {customerName && (
           <div
-            onClick={onOpenBarcodeModal}
-            className={`hidden md:flex items-center rounded border px-2.5 py-1 cursor-pointer ${
+            className={`hidden md:flex items-center rounded border px-2.5 py-1 ${
               isDark
-                ? 'bg-slate-950/80 border-slate-800 hover:border-slate-700 text-slate-300'
-                : 'bg-white border-slate-300 hover:border-slate-400 text-slate-700'
+                ? 'bg-slate-950/80 border-slate-800 text-slate-300'
+                : 'bg-white border-slate-300 text-slate-700'
             }`}
-            title="Customer Name (click to edit)"
+            title="Customer Name"
           >
             <User className="w-3 h-3 text-blue-500 mr-1.5" />
             <span className="text-[11px] max-w-[120px] truncate">{customerName}</span>
@@ -149,13 +126,12 @@ export const SystemSelector: React.FC<SystemSelectorProps> = ({
         {/* Job Number (if defined) */}
         {jobNumber && (
           <div
-            onClick={onOpenBarcodeModal}
-            className={`hidden sm:flex items-center rounded border px-2.5 py-1 cursor-pointer ${
+            className={`hidden sm:flex items-center rounded border px-2.5 py-1 ${
               isDark
-                ? 'bg-slate-950/80 border-slate-800 hover:border-slate-700 text-slate-300'
-                : 'bg-white border-slate-300 hover:border-slate-400 text-slate-700'
+                ? 'bg-slate-950/80 border-slate-800 text-slate-300'
+                : 'bg-white border-slate-300 text-slate-700'
             }`}
-            title="Job Number (click to edit)"
+            title="Job Number"
           >
             <Briefcase className="w-3 h-3 text-blue-500 mr-1.5" />
             <span className="font-mono text-[11px]">{jobNumber}</span>
@@ -165,13 +141,12 @@ export const SystemSelector: React.FC<SystemSelectorProps> = ({
         {/* Part Number (if defined) */}
         {partNumber && (
           <div
-            onClick={onOpenBarcodeModal}
-            className={`hidden lg:flex items-center rounded border px-2.5 py-1 cursor-pointer ${
+            className={`hidden lg:flex items-center rounded border px-2.5 py-1 ${
               isDark
-                ? 'bg-slate-950/80 border-slate-800 hover:border-slate-700 text-slate-300'
-                : 'bg-white border-slate-300 hover:border-slate-400 text-slate-700'
+                ? 'bg-slate-950/80 border-slate-800 text-slate-300'
+                : 'bg-white border-slate-300 text-slate-700'
             }`}
-            title="Part Number (click to edit)"
+            title="Part Number"
           >
             <Tag className="w-3 h-3 text-blue-500 mr-1.5" />
             <span className="font-mono text-[11px]">{partNumber}</span>

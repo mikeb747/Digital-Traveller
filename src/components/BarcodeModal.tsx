@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, QrCode, Scan, Check, RefreshCw, User, Briefcase, Hash, Tag, KeyRound } from 'lucide-react';
+import { X, QrCode, Scan, Check, RefreshCw, User, Briefcase, Hash, Tag } from 'lucide-react';
 import { SystemType } from '../types/traveller';
 
 interface BarcodeModalProps {
@@ -10,7 +10,6 @@ interface BarcodeModalProps {
   currentPartNumber?: string;
   currentSystem: SystemType;
   onClose: () => void;
-  onOpenWireKey?: (sn?: string) => void;
   onUpdateDetails: (details: {
     serialNumber: string;
     customerName: string;
@@ -27,7 +26,6 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
   currentPartNumber = '',
   currentSystem,
   onClose,
-  onOpenWireKey,
   onUpdateDetails
 }) => {
   if (!isOpen) return null;
@@ -173,18 +171,6 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
                   <span>Serial Number (S/N)</span>
                 </label>
 
-                {onOpenWireKey && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onOpenWireKey(inputSerial);
-                    }}
-                    className="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 transition-colors"
-                  >
-                    <KeyRound className="w-3 h-3" />
-                    <span>Get WiRE Key</span>
-                  </button>
-                )}
               </div>
               <div className="flex gap-2">
                 <input
@@ -194,19 +180,6 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
                   placeholder={`e.g. ${prefix}-102948`}
                   className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono font-semibold text-amber-300 placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 />
-                {onOpenWireKey && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onOpenWireKey(inputSerial);
-                    }}
-                    className="px-3 py-2 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 rounded-lg text-xs font-medium flex items-center gap-1 transition-colors"
-                    title="Generate feature permission key from spd-apps"
-                  >
-                    <KeyRound className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>Get Key</span>
-                  </button>
-                )}
               </div>
             </div>
           </div>
