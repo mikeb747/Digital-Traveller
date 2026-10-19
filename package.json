@@ -46,15 +46,8 @@
     "win": {
       "icon": "electron/icon.png",
       "target": [
-        "nsis",
         "portable"
       ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
     }
   }
 }

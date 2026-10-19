@@ -9,7 +9,7 @@ on:
       - 'v*'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-windows:
@@ -26,11 +26,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        shell: pwsh
-        run: |
-          Remove-Item package-lock.json -ErrorAction SilentlyContinue
-          Remove-Item node_modules -Recurse -Force -ErrorAction SilentlyContinue
-          npm install
+        run: npm ci
 
       - name: Build web app
         run: npm run build
@@ -42,7 +38,7 @@ jobs:
           Get-ChildItem web-build
 
       - name: Package Windows executable
-        run: npx electron-builder --win nsis portable --publish never
+        run: npx electron-builder --win portable --publish never
 
       - name: Verify web app is packaged
         shell: pwsh
@@ -58,7 +54,7 @@ jobs:
       - name: Upload Windows Executable Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: digital-traveller-windows
+          name: digital-traveller-windows-portable
           path: release/*.exe
           if-no-files-found: error
           retention-days: 30
