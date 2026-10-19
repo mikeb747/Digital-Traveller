@@ -1,6 +1,6 @@
-# Digital Traveller — Production QA & Calibration Workflow App
+# Digital Traveller — Technician Workflow & Manufacturing Traveller Application
 
-A modern, high-precision digital traveller and quality tracking system designed for Renishaw spectroscopy manufacturing workflows (**inVia**, **Virsa**, **inLux**).
+A Digital 'Manufacturing Traveller(En-GB)/Traveler(En-US)' used to improve workflow efficiency, automate and speed up processes, designed for Renishaw spectroscopy manufacturing workflows (**inVia**, **Virsa**, **inLux**, **Strada**).
 
 ---
 
@@ -31,21 +31,6 @@ Open your shared cloud deployment link in Chrome or Microsoft Edge:
 - In the URL bar, click the **Install App** icon (or Menu $\to$ **Install Digital Traveller**).
 - It will run in its own standalone, frameless desktop window with local storage persistence.
 
----
-
-### Option 3: Running from Source / Local Developer Mode
-If you already have **Node.js** (v18+) installed on your PC:
-1. Open a Command Prompt / PowerShell in the extracted project folder:
-   ```bash
-   npm install
-   npm run dev
-   ```
-2. Open `http://localhost:3000` in your browser.
-3. To package the desktop app locally:
-   ```bash
-   npm run electron:build
-   ```
-   The `.exe` will be generated in the `release/` folder.
 
 ---
 
