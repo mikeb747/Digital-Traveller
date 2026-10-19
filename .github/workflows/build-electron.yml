@@ -26,7 +26,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --include=optional --package-lock=false
 
       - name: Build web app
         run: npm run build
