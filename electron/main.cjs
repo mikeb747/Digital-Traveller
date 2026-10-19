@@ -253,21 +253,56 @@ ipcMain.handle('select-network-directory', async (event) => {
   return result.filePaths[0];
 });
 
+function getSystemDirectory(request) {
+  const validateSegment = (value, label) => {
+    const segment = typeof value === 'string' ? value.trim() : '';
+    if (
+      !segment ||
+      segment === '.' ||
+      segment === '..' ||
+      /[<>:"/\\|?*\u0000-\u001f]/.test(segment) ||
+      /[. ]$/.test(segment)
+    ) {
+      throw new Error(`Enter a valid ${label} before creating system folders.`);
+    }
+    return segment;
+  };
+
+  const serialNumber = validateSegment(request?.serialNumber, 'serial number');
+  const partNumber = validateSegment(request?.partNumber, 'part number');
+  const customerName = validateSegment(request?.customerName, 'customer name');
+  const configuredLocation = typeof request?.saveLocation === 'string'
+    ? request.saveLocation.trim()
+    : '';
+  const saveLocation = configuredLocation || app.getPath('documents');
+  if (!path.isAbsolute(saveLocation)) {
+    throw new Error('The Save location must be an absolute local or network directory path.');
+  }
+
+  return path.join(saveLocation, `${serialNumber}_${partNumber}_${customerName}`);
+}
+
+ipcMain.handle('create-system-folders', async (event, request) => {
+  try {
+    const systemDirectory = getSystemDirectory(request);
+    const folders = [
+      path.join(systemDirectory, 'Customer data', 'Probe 1'),
+      path.join(systemDirectory, 'Customer data', 'Reg Backup'),
+      path.join(systemDirectory, 'Customer data', 'System Pictures'),
+      path.join(systemDirectory, 'Internal data', 'Digital Test Sheets'),
+      path.join(systemDirectory, 'Internal data', 'Extra Data')
+    ];
+    await Promise.all(folders.map((folder) => fs.promises.mkdir(folder, { recursive: true })));
+    return { success: true, directory: systemDirectory };
+  } catch (err) {
+    console.error('Failed to create system folders:', err);
+    return { success: false, error: `Could not create system folders: ${err.message}` };
+  }
+});
+
 ipcMain.handle('create-laser-grating-files', async (event, request) => {
   try {
-    const serialNumber = typeof request?.serialNumber === 'string'
-      ? request.serialNumber.trim()
-      : '';
-    const invalidFolderCharacters = /[<>:"/\\|?*\u0000-\u001f]/;
-    if (
-      !serialNumber ||
-      serialNumber === '.' ||
-      serialNumber === '..' ||
-      invalidFolderCharacters.test(serialNumber) ||
-      /[. ]$/.test(serialNumber)
-    ) {
-      return { success: false, error: 'Enter a valid system serial number before creating files.' };
-    }
+    const systemDirectory = getSystemDirectory(request);
 
     if (!Array.isArray(request?.combinations) || request.combinations.length === 0) {
       return { success: false, error: 'Add at least one laser and grating combination first.' };
@@ -291,7 +326,7 @@ ipcMain.handle('create-laser-grating-files', async (event, request) => {
       fileNames.add(`${wavelength}nm_${gratingDensity}.txt`);
     }
 
-    const extraDataDirectory = path.join(app.getPath('documents'), serialNumber, 'Extra Data');
+    const extraDataDirectory = path.join(systemDirectory, 'Internal data', 'Extra Data');
     const targetPaths = [...fileNames].map((fileName) => path.join(extraDataDirectory, fileName));
     const conflicts = [];
 
@@ -396,6 +431,7 @@ ipcMain.handle('fetch-wire-key', async (event, serialNumber) => {
 });
 
 app.whenReady().then(() => {
+  setKeepAwake(true);
   createWindow();
 
   app.on('activate', () => {

@@ -9,6 +9,9 @@ import { Plus, Trash2 } from 'lucide-react';
 interface LaserGratingStepPanelProps {
   mode: 'selection' | 'files';
   serialNumber: string;
+  partNumber: string;
+  customerName: string;
+  saveLocation: string;
   combinations: LaserGratingCombination[];
   onChange: (combinations: LaserGratingCombination[]) => void;
   onCreateFiles: (overwrite: boolean) => Promise<LaserGratingFileResult>;
@@ -18,6 +21,9 @@ interface LaserGratingStepPanelProps {
 export const LaserGratingStepPanel: React.FC<LaserGratingStepPanelProps> = ({
   mode,
   serialNumber,
+  partNumber,
+  customerName,
+  saveLocation,
   combinations,
   onChange,
   onCreateFiles,
@@ -88,7 +94,8 @@ export const LaserGratingStepPanel: React.FC<LaserGratingStepPanelProps> = ({
         return;
       }
 
-      setMessage(`Created ${result.files.length} blank file(s) in My Documents.`);
+      const directory = result.files[0]?.replace(/[\\/][^\\/]*$/, '') || '';
+      setMessage(`Created ${result.files.length} blank file(s) in ${directory}.`);
       onComplete();
     } catch (error) {
       setIsError(true);
@@ -170,7 +177,9 @@ export const LaserGratingStepPanel: React.FC<LaserGratingStepPanelProps> = ({
       <div className="text-xs text-slate-300">
         Files will be created in{' '}
         <span className="font-mono text-blue-300">
-          My Documents\{serialNumber || '[serial number]'}\Extra Data
+          {saveLocation.trim().replace(/[\\/]+$/, '') || 'Documents'}
+          \{serialNumber || '[serial number]'}_{partNumber || '[part number]'}_
+          {customerName || '[customer name]'}\Internal data\Extra Data
         </span>
         .
       </div>

@@ -14,6 +14,72 @@
   -webkit-app-region: no-drag;
 }
 
+.step-dialog-light [class~="bg-slate-900"] {
+  background-color: #ffffff;
+}
+.step-dialog-light [class~="bg-slate-900/60"] {
+  background-color: #f1f5f9;
+}
+.step-dialog-light [class~="bg-slate-950/80"],
+.step-dialog-light [class~="bg-slate-950/90"],
+.step-dialog-light [class~="bg-slate-950/70"] {
+  background-color: #f1f5f9;
+}
+.step-dialog-light [class~="bg-slate-950/60"],
+.step-dialog-light [class~="bg-slate-950/50"] {
+  background-color: #f8fafc;
+}
+.step-dialog-light [class~="bg-slate-950"] {
+  background-color: #f8fafc;
+}
+.step-dialog-light [class~="bg-slate-800"] {
+  background-color: #e2e8f0;
+}
+.step-dialog-light [class~="border-slate-700"],
+.step-dialog-light [class~="border-slate-700/80"],
+.step-dialog-light [class~="border-slate-800"],
+.step-dialog-light [class~="border-slate-800/80"] {
+  border-color: #cbd5e1;
+}
+.step-dialog-light [class~="divide-slate-800/60"] > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e2e8f0;
+}
+.step-dialog-light [class~="text-slate-100"] {
+  color: #0f172a;
+}
+.step-dialog-light [class~="text-slate-200"] {
+  color: #1e293b;
+}
+.step-dialog-light [class~="text-slate-300"] {
+  color: #334155;
+}
+.step-dialog-light [class~="text-slate-400"] {
+  color: #475569;
+}
+.step-dialog-light [class~="text-slate-500"],
+.step-dialog-light [class~="text-slate-600"],
+.step-dialog-light [class~="placeholder-slate-600"]::placeholder {
+  color: #64748b;
+}
+.step-dialog-light [class~="text-blue-400"],
+.step-dialog-light [class~="text-blue-300"] {
+  color: #1d4ed8;
+}
+.step-dialog-light [class~="hover:bg-slate-800"]:hover,
+.step-dialog-light [class~="hover:bg-slate-800/40"]:hover,
+.step-dialog-light [class~="hover:bg-slate-700/80"]:hover {
+  background-color: #e2e8f0;
+}
+.step-dialog-light [class~="hover:text-white"]:hover {
+  color: #0f172a;
+}
+.step-dialog-light [class~="bg-blue-950/30"] {
+  background-color: #eff6ff;
+}
+.step-dialog-light [class~="border-blue-800/70"] {
+  border-color: #bfdbfe;
+}
+
 /* Custom scrollbars matching Windows 11 Fluent aesthetic */
 ::-webkit-scrollbar {
   width: 8px;

@@ -6,7 +6,8 @@ import {
   WorkflowStep,
   SystemType,
   WorkflowStage,
-  StepStatus
+  StepStatus,
+  SystemFolderResult
 } from './types/traveller';
 import { StorageService } from './services/storageService';
 import { WorkflowService } from './services/workflowService';
@@ -22,6 +23,14 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { AdminSettingsModal } from './components/AdminSettingsModal';
 import { WorkflowTemplateService } from './services/workflowTemplateService';
 import { WireKeyModal } from './components/WireKeyModal';
+import {
+  RECORD_SYSTEM_DETAILS_STEP_INSTRUCTIONS,
+  RECORD_SYSTEM_DETAILS_STEP_NAME,
+  SYSTEM_UNBOXING_STEP_INSTRUCTIONS,
+  SYSTEM_UNBOXING_STEP_NAME,
+  SYSTEM_FOLDERS_STEP_NAME,
+  SYSTEM_FOLDERS_STEP_INSTRUCTIONS
+} from './services/laserGratingWorkflow';
 
 export const App: React.FC = () => {
   // Theme state: 'dark' | 'light'
@@ -326,24 +335,98 @@ export const App: React.FC = () => {
 
   // Handle applied workflow template from Admin Settings (Load Workflows)
   const handleApplyWorkflows = (newStages: string[], newSteps: WorkflowStep[]) => {
+    const setupStep = newSteps.find(
+      (step) => step.name === SYSTEM_UNBOXING_STEP_NAME
+    ) || newSteps.find((step) =>
+      step.stage === 'Setup' &&
+      step.name !== RECORD_SYSTEM_DETAILS_STEP_NAME &&
+      step.name !== SYSTEM_FOLDERS_STEP_NAME
+    );
+    const unboxingStep: WorkflowStep = setupStep
+      ? {
+          ...setupStep,
+          name: SYSTEM_UNBOXING_STEP_NAME,
+          stage: 'Setup',
+          instructions: [
+            ...setupStep.instructions,
+            ...(!setupStep.instructions.some((instruction) =>
+              SYSTEM_UNBOXING_STEP_INSTRUCTIONS.includes(instruction)
+            ) ? SYSTEM_UNBOXING_STEP_INSTRUCTIONS : [])
+          ]
+        }
+      : {
+          id: `step-${traveller.system}-system-setup-${Date.now().toString(36)}`,
+          name: SYSTEM_UNBOXING_STEP_NAME,
+          stage: 'Setup',
+          status: 'Not Started',
+          completedAt: null,
+          startedAt: null,
+          technician: '',
+          notes: '',
+          instructions: [...SYSTEM_UNBOXING_STEP_INSTRUCTIONS],
+          checklist: [],
+          measuredData: []
+        };
+    const existingDetailsStep = newSteps.find(
+      (step) => step.name === RECORD_SYSTEM_DETAILS_STEP_NAME
+    );
+    const detailsStep = existingDetailsStep
+      ? { ...existingDetailsStep, stage: 'Setup' }
+      : {
+          id: `step-${traveller.system}-system-details-${Date.now().toString(36)}`,
+          name: RECORD_SYSTEM_DETAILS_STEP_NAME,
+          stage: 'Setup',
+          status: 'Not Started' as const,
+          completedAt: null,
+          startedAt: null,
+          technician: '',
+          notes: '',
+          instructions: [...RECORD_SYSTEM_DETAILS_STEP_INSTRUCTIONS],
+          checklist: [],
+          measuredData: []
+        };
+    const existingFolderStep = newSteps.find((step) => step.name === SYSTEM_FOLDERS_STEP_NAME);
+    const folderStep = existingFolderStep
+      ? { ...existingFolderStep, stage: 'Setup' }
+      : {
+          id: `step-${traveller.system}-system-folders-${Date.now().toString(36)}`,
+          name: SYSTEM_FOLDERS_STEP_NAME,
+          stage: 'Setup',
+          status: 'Not Started' as const,
+          completedAt: null,
+          startedAt: null,
+          technician: '',
+          notes: '',
+          instructions: [...SYSTEM_FOLDERS_STEP_INSTRUCTIONS],
+          checklist: [],
+          measuredData: []
+        };
+    const normalizedStages = Array.from(new Set(['Setup', ...newStages]));
+    const normalizedSteps = [unboxingStep, detailsStep, folderStep, ...newSteps.filter(
+      (step) => ![
+        SYSTEM_UNBOXING_STEP_NAME,
+        RECORD_SYSTEM_DETAILS_STEP_NAME,
+        SYSTEM_FOLDERS_STEP_NAME
+      ].includes(step.name) && step !== setupStep
+    )];
     setTraveller((prev) => ({
       ...prev,
-      stages: newStages,
-      steps: newSteps,
-      activeStage: newStages[0] || 'Setup',
+      stages: normalizedStages,
+      steps: normalizedSteps,
+      activeStage: 'Setup',
       updatedAt: new Date().toISOString(),
       auditLog: [
         {
           timestamp: new Date().toISOString(),
-          action: `Admin loaded workflow template (${newSteps.length} steps across ${newStages.length} tabs)`,
+          action: `Admin loaded workflow template (${normalizedSteps.length} steps across ${normalizedStages.length} tabs)`,
           user: prev.operatorName
         },
         ...prev.auditLog
       ]
     }));
-    setActiveStage(newStages[0] || 'Setup');
+    setActiveStage('Setup');
     setSelectedStepId(null);
-    setNotification(`Workflows loaded: ${newSteps.length} steps across ${newStages.length} tabs`);
+    setNotification(`Workflows loaded: ${normalizedSteps.length} steps across ${normalizedStages.length} tabs`);
   };
 
   const handleUpdateLaserGratingCombinations = (combinations: LaserGratingCombination[]) => {
@@ -361,23 +444,47 @@ export const App: React.FC = () => {
     if (!createFiles) {
       return {
         success: false,
-        error: 'Creating files in My Documents is available in the Windows desktop app only.'
+        error: 'Creating files is available in the Windows desktop app only.'
       };
     }
 
     const result = await createFiles(
       traveller.serialNumber,
+      traveller.partNumber || '',
+      traveller.customerName || '',
+      StorageService.getSaveLocation(),
       traveller.laserGratingCombinations || [],
       overwrite
     );
     if (result.success) {
+      const directory = result.files[0]?.replace(/[\\/][^\\/]*$/, '') || '';
       setNotification(
-        `Created ${result.files.length} blank file(s) in My Documents\\${traveller.serialNumber}\\Extra Data`
+        `Created ${result.files.length} blank file(s) in ${directory}`
       );
     }
     return result;
   };
 
+  const handleCreateSystemFolders = async (): Promise<SystemFolderResult> => {
+    const createFolders = window.desktopAPI?.createSystemFolders;
+    if (!createFolders) {
+      return {
+        success: false,
+        error: 'Creating system folders is available in the Windows desktop app only.'
+      };
+    }
+
+    const result = await createFolders(
+      traveller.serialNumber,
+      traveller.partNumber || '',
+      traveller.customerName || '',
+      StorageService.getSaveLocation()
+    );
+    if (result.success) {
+      setNotification(`Created system folder structure in ${result.directory}`);
+    }
+    return result;
+  };
   return (
     <WindowFrame
       system={traveller.system}
@@ -420,11 +527,6 @@ export const App: React.FC = () => {
         isAdmin={isAdmin}
         theme={theme}
         onSelectSystem={handleRequestSystemSwitch}
-        onOpenBarcodeModal={() => setIsBarcodeModalOpen(true)}
-        onOpenWireKey={() => {
-          setWireKeySerial(traveller.serialNumber);
-          setIsWireKeyModalOpen(true);
-        }}
         onChangeOperator={handleChangeOperator}
       />
 
@@ -468,19 +570,26 @@ export const App: React.FC = () => {
       <StepDialog
         step={selectedStep}
         operatorName={traveller.operatorName}
+        theme={theme}
         isOpen={isStepDialogOpen}
         onClose={() => setIsStepDialogOpen(false)}
         onOpenWireKey={() => {
           setWireKeySerial(traveller.serialNumber);
           setIsWireKeyModalOpen(true);
         }}
+        onOpenSystemDetails={() => setIsBarcodeModalOpen(true)}
         onUpdateStatus={handleUpdateStepStatus}
         onToggleChecklist={handleToggleChecklist}
         onUpdateMeasurement={handleUpdateMeasurement}
         serialNumber={traveller.serialNumber}
+        jobNumber={traveller.jobNumber || ''}
+        partNumber={traveller.partNumber || ''}
+        customerName={traveller.customerName || ''}
+        saveLocation={StorageService.getSaveLocation()}
         laserGratingCombinations={traveller.laserGratingCombinations || []}
         onUpdateLaserGratingCombinations={handleUpdateLaserGratingCombinations}
         onCreateLaserGratingFiles={handleCreateLaserGratingFiles}
+        onCreateSystemFolders={handleCreateSystemFolders}
       />
 
       {/* Barcode & Unit Details Scanner Modal Dialog */}
@@ -492,10 +601,6 @@ export const App: React.FC = () => {
         currentPartNumber={traveller.partNumber}
         currentSystem={traveller.system}
         onClose={() => setIsBarcodeModalOpen(false)}
-        onOpenWireKey={(sn) => {
-          setWireKeySerial(sn || traveller.serialNumber);
-          setIsWireKeyModalOpen(true);
-        }}
         onUpdateDetails={handleUpdateDetails}
       />
 

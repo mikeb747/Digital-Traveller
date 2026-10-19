@@ -2,8 +2,15 @@ import { SystemType, WorkflowStep, WorkflowStage } from '../types/traveller';
 import { SYSTEM_PROFILES } from './defaultWorkflows';
 import { SystemRegistryService } from './systemRegistryService';
 import {
+  LASER_GRATING_FILES_SAVE_INSTRUCTION,
   LASER_GRATING_FILES_STEP_NAME,
-  LASER_GRATING_SELECTION_STEP_NAME
+  LASER_GRATING_SELECTION_STEP_NAME,
+  RECORD_SYSTEM_DETAILS_STEP_INSTRUCTIONS,
+  RECORD_SYSTEM_DETAILS_STEP_NAME,
+  SYSTEM_UNBOXING_STEP_INSTRUCTIONS,
+  SYSTEM_UNBOXING_STEP_NAME,
+  SYSTEM_FOLDERS_STEP_NAME,
+  SYSTEM_FOLDERS_STEP_INSTRUCTIONS
 } from './laserGratingWorkflow';
 
 export interface WorkflowTemplateItem {
@@ -13,6 +20,24 @@ export interface WorkflowTemplateItem {
   checklist?: { id: string; label: string; done: boolean }[];
   measuredData?: { parameter: string; value: string; unit: string; tolerance?: string }[];
 }
+
+const SYSTEM_UNBOXING_TEMPLATE_STEP: WorkflowTemplateItem = {
+  name: SYSTEM_UNBOXING_STEP_NAME,
+  stage: 'Setup',
+  instructions: [...SYSTEM_UNBOXING_STEP_INSTRUCTIONS]
+};
+
+const RECORD_SYSTEM_DETAILS_TEMPLATE_STEP: WorkflowTemplateItem = {
+  name: RECORD_SYSTEM_DETAILS_STEP_NAME,
+  stage: 'Setup',
+  instructions: [...RECORD_SYSTEM_DETAILS_STEP_INSTRUCTIONS]
+};
+
+const SYSTEM_FOLDERS_TEMPLATE_STEP: WorkflowTemplateItem = {
+  name: SYSTEM_FOLDERS_STEP_NAME,
+  stage: 'Setup',
+  instructions: [...SYSTEM_FOLDERS_STEP_INSTRUCTIONS]
+};
 
 export interface WorkflowTemplate {
   system: SystemType;
@@ -46,20 +71,87 @@ export class WorkflowTemplateService {
         const parsed = JSON.parse(stored) as WorkflowTemplate;
         if (parsed && Array.isArray(parsed.stages) && Array.isArray(parsed.steps)) {
           const requiredStepNames = new Set([
+            RECORD_SYSTEM_DETAILS_STEP_NAME,
+            SYSTEM_FOLDERS_STEP_NAME,
             LASER_GRATING_SELECTION_STEP_NAME,
             LASER_GRATING_FILES_STEP_NAME
           ]);
-          const requiredSteps = (SYSTEM_PROFILES[normalizedSystem]?.defaultSteps || [])
-            .filter((step) => requiredStepNames.has(step.name));
+          const requiredSteps: WorkflowTemplateItem[] = [
+            RECORD_SYSTEM_DETAILS_TEMPLATE_STEP,
+            SYSTEM_FOLDERS_TEMPLATE_STEP,
+            ...(SYSTEM_PROFILES[normalizedSystem]?.defaultSteps || [])
+              .filter((step) => requiredStepNames.has(step.name))
+          ];
           const missingSteps = requiredSteps.filter(
             (required) => !parsed.steps.some((step) => step.name === required.name)
           );
+          const hasLegacyFileLocation = parsed.steps.some(
+            (step) => step.name === LASER_GRATING_FILES_STEP_NAME &&
+              Array.isArray(step.instructions) &&
+              step.instructions.some((instruction) => instruction.includes('Files are saved in My Documents'))
+          );
 
-          if (missingSteps.length > 0) {
+          const hasSetupOrder = parsed.steps[0]?.name === SYSTEM_UNBOXING_STEP_NAME &&
+            parsed.steps[1]?.name === RECORD_SYSTEM_DETAILS_STEP_NAME &&
+            parsed.steps[2]?.name === SYSTEM_FOLDERS_STEP_NAME;
+          if (missingSteps.length > 0 || !hasSetupOrder || hasLegacyFileLocation) {
+            const existingUnboxingStep = parsed.steps.find(
+              (step) => step.name === SYSTEM_UNBOXING_STEP_NAME
+            );
+            const originalFirstSetupStep = existingUnboxingStep ? undefined : parsed.steps.find(
+              (step) =>
+                step.stage === 'Setup' &&
+                step.name !== RECORD_SYSTEM_DETAILS_STEP_NAME &&
+                step.name !== SYSTEM_FOLDERS_STEP_NAME &&
+                step.name !== SYSTEM_UNBOXING_STEP_NAME
+            );
+            const unboxingStep = existingUnboxingStep
+              ? { ...existingUnboxingStep, stage: 'Setup' }
+              : (originalFirstSetupStep
+                ? {
+                    ...originalFirstSetupStep,
+                    name: SYSTEM_UNBOXING_STEP_NAME,
+                    stage: 'Setup',
+                    instructions: [
+                      ...originalFirstSetupStep.instructions,
+                      ...SYSTEM_UNBOXING_STEP_INSTRUCTIONS
+                    ]
+                  }
+                : SYSTEM_UNBOXING_TEMPLATE_STEP);
+            const detailsStep = parsed.steps.find(
+              (step) => step.name === RECORD_SYSTEM_DETAILS_STEP_NAME
+            );
+            const recordDetailsStep = detailsStep
+              ? { ...detailsStep, stage: 'Setup' }
+              : RECORD_SYSTEM_DETAILS_TEMPLATE_STEP;
+            const existingFolderStep = parsed.steps.find(
+              (step) => step.name === SYSTEM_FOLDERS_STEP_NAME
+            );
+            const folderStep = existingFolderStep
+              ? { ...existingFolderStep, stage: 'Setup' }
+              : SYSTEM_FOLDERS_TEMPLATE_STEP;
             const updatedTemplate: WorkflowTemplate = {
               ...parsed,
-              stages: Array.from(new Set([...parsed.stages, 'Calibration'])),
-              steps: [...parsed.steps, ...missingSteps.map((step) => ({
+              stages: Array.from(new Set([...parsed.stages, 'Setup', 'Calibration'])),
+              steps: [unboxingStep, recordDetailsStep, folderStep, ...parsed.steps.filter(
+                (step) => ![
+                  SYSTEM_UNBOXING_STEP_NAME,
+                  RECORD_SYSTEM_DETAILS_STEP_NAME,
+                  SYSTEM_FOLDERS_STEP_NAME
+                ].includes(step.name) && step !== originalFirstSetupStep
+              ).map((step) => step.name === LASER_GRATING_FILES_STEP_NAME
+                ? {
+                    ...step,
+                    instructions: (Array.isArray(step.instructions) ? step.instructions : []).map((instruction) =>
+                      instruction.includes('Files are saved in My Documents')
+                        ? LASER_GRATING_FILES_SAVE_INSTRUCTION
+                        : instruction
+                    )
+                  }
+                  : step), ...missingSteps.filter((step) => ![
+                  RECORD_SYSTEM_DETAILS_STEP_NAME,
+                  SYSTEM_FOLDERS_STEP_NAME
+                ].includes(step.name)).map((step) => ({
                 ...step,
                 instructions: [...step.instructions],
                 checklist: step.checklist?.map((item) => ({ ...item })),
@@ -83,7 +175,6 @@ export class WorkflowTemplateService {
       : ['Setup', 'Calibration', 'Final Test & Release'];
 
     let defaultSteps: WorkflowTemplateItem[] = [];
-
     if (profile && profile.defaultSteps) {
       defaultSteps = profile.defaultSteps.map((s) => ({
         name: s.name,
@@ -92,24 +183,44 @@ export class WorkflowTemplateService {
         checklist: s.checklist ? s.checklist.map((c) => ({ ...c, done: false })) : [],
         measuredData: s.measuredData ? s.measuredData.map((m) => ({ ...m, value: '' })) : []
       }));
+      const firstSetupIndex = defaultSteps.findIndex((step) => step.stage === 'Setup');
+      const initialSetupStep = firstSetupIndex >= 0
+        ? defaultSteps.splice(firstSetupIndex, 1)[0]
+        : SYSTEM_UNBOXING_TEMPLATE_STEP;
+      defaultSteps.unshift(
+        {
+          ...initialSetupStep,
+          name: SYSTEM_UNBOXING_STEP_NAME,
+          instructions: [
+            ...initialSetupStep.instructions,
+            ...SYSTEM_UNBOXING_STEP_INSTRUCTIONS
+          ]
+        },
+        RECORD_SYSTEM_DETAILS_TEMPLATE_STEP,
+        SYSTEM_FOLDERS_TEMPLATE_STEP
+      );
     } else {
       // Default placeholder workflows for newly created custom systems
       defaultSteps = [
         {
-          name: `${normalizedSystem} System Unpacking & Mechanical Inspection`,
-          stage: 'Setup',
+          ...SYSTEM_UNBOXING_TEMPLATE_STEP,
+          name: SYSTEM_UNBOXING_STEP_NAME,
           instructions: [
             `Verify ${normalizedSystem} baseplate and chassis integrity.`,
             'Confirm electrical grounding and safety interlock loop continuity.',
-            'Record environment temperature (20°C ± 1°C) and cleanroom status.'
+            'Record environment temperature (20°C ± 1°C) and cleanroom status.',
+            ...SYSTEM_UNBOXING_STEP_INSTRUCTIONS
           ],
           checklist: [
             { id: 'c1', label: 'Chassis unboxing inspection complete', done: false },
             { id: 'c2', label: 'Earth ground resistance < 0.1 Ohm verified', done: false }
           ]
         },
+        RECORD_SYSTEM_DETAILS_TEMPLATE_STEP,
+        SYSTEM_FOLDERS_TEMPLATE_STEP,
         {
           name: `${normalizedSystem} Optical & Sensor Calibration`,
+          stage: 'Setup',
           stage: 'Calibration',
           instructions: [
             'Align laser source with entrance aperture.',

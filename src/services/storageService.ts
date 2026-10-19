@@ -2,8 +2,15 @@ import { TravellerRecord, SystemType, WorkflowStep } from '../types/traveller';
 import { SYSTEM_PROFILES } from './defaultWorkflows';
 import { WorkflowTemplateService } from './workflowTemplateService';
 import {
+  LASER_GRATING_FILES_SAVE_INSTRUCTION,
   LASER_GRATING_FILES_STEP_NAME,
-  LASER_GRATING_SELECTION_STEP_NAME
+  LASER_GRATING_SELECTION_STEP_NAME,
+  RECORD_SYSTEM_DETAILS_STEP_INSTRUCTIONS,
+  RECORD_SYSTEM_DETAILS_STEP_NAME,
+  SYSTEM_UNBOXING_STEP_INSTRUCTIONS,
+  SYSTEM_UNBOXING_STEP_NAME,
+  SYSTEM_FOLDERS_STEP_NAME,
+  SYSTEM_FOLDERS_STEP_INSTRUCTIONS
 } from './laserGratingWorkflow';
 
 const STORAGE_KEY_CURRENT = 'digital_traveller_current_record';
@@ -11,6 +18,7 @@ const STORAGE_KEY_RECORDS = 'digital_traveller_records_history';
 const STORAGE_KEY_ACTIVE_SYSTEM = 'digital_traveller_active_system';
 const STORAGE_KEY_SYSTEM_PREFIX = 'digital_traveller_system_';
 const STORAGE_KEY_TECHS = 'digital_traveller_technicians';
+const STORAGE_KEY_SAVE_LOCATION = 'digital_traveller_save_location';
 
 export const DEFAULT_TECHNICIANS = [
   'P. Street',
@@ -218,6 +226,24 @@ export class StorageService {
     } catch (e) {
       console.error(e);
     }
+
+    static getSaveLocation(): string {
+      return localStorage.getItem(STORAGE_KEY_SAVE_LOCATION) || '';
+    }
+
+    static setSaveLocation(location: string): void {
+      try {
+        const trimmed = location.trim();
+        if (trimmed) {
+          localStorage.setItem(STORAGE_KEY_SAVE_LOCATION, trimmed);
+        } else {
+          localStorage.removeItem(STORAGE_KEY_SAVE_LOCATION);
+        }
+      } catch (e) {
+        console.error('Failed to save file location', e);
+        throw e;
+      }
+    }
   }
 
   /**
@@ -252,6 +278,8 @@ export class StorageService {
   private static ensureWorkflowSteps(record: TravellerRecord): TravellerRecord {
     const template = WorkflowTemplateService.getTemplate(record.system);
     const requiredStepNames = new Set([
+      RECORD_SYSTEM_DETAILS_STEP_NAME,
+      SYSTEM_FOLDERS_STEP_NAME,
       LASER_GRATING_SELECTION_STEP_NAME,
       LASER_GRATING_FILES_STEP_NAME
     ]);
@@ -269,11 +297,100 @@ export class StorageService {
         checklist: step.checklist?.map((item) => ({ ...item, done: false })) || [],
         measuredData: step.measuredData?.map((item) => ({ ...item, value: '' })) || []
       }));
+    const existingUnboxingStep = record.steps.find(
+      (step) => step.name === SYSTEM_UNBOXING_STEP_NAME
+    );
+    const originalFirstSetupStep = existingUnboxingStep ? undefined : record.steps.find(
+      (step) =>
+        step.stage === 'Setup' &&
+        step.name !== RECORD_SYSTEM_DETAILS_STEP_NAME &&
+        step.name !== SYSTEM_FOLDERS_STEP_NAME &&
+        step.name !== SYSTEM_UNBOXING_STEP_NAME
+    );
+    const unboxingStep = existingUnboxingStep
+      ? { ...existingUnboxingStep, stage: 'Setup' }
+      : (originalFirstSetupStep
+        ? {
+            ...originalFirstSetupStep,
+            name: SYSTEM_UNBOXING_STEP_NAME,
+            stage: 'Setup',
+            instructions: [
+              ...originalFirstSetupStep.instructions,
+              ...SYSTEM_UNBOXING_STEP_INSTRUCTIONS
+            ]
+          }
+        : {
+            id: `step-${record.system}-system-setup-${Date.now().toString(36)}`,
+            name: SYSTEM_UNBOXING_STEP_NAME,
+            stage: 'Setup',
+            status: 'Not Started' as const,
+            completedAt: null,
+            startedAt: null,
+            technician: '',
+            notes: '',
+            instructions: [...SYSTEM_UNBOXING_STEP_INSTRUCTIONS],
+            checklist: [],
+            measuredData: []
+          });
+    const existingDetailsStep = record.steps.find(
+      (step) => step.name === RECORD_SYSTEM_DETAILS_STEP_NAME
+    );
+    const detailsStep = existingDetailsStep
+      ? { ...existingDetailsStep, stage: 'Setup' }
+      : missingSteps.find((step) => step.name === RECORD_SYSTEM_DETAILS_STEP_NAME) || {
+          id: `step-${record.system}-system-details-${Date.now().toString(36)}`,
+          name: RECORD_SYSTEM_DETAILS_STEP_NAME,
+          stage: 'Setup',
+          status: 'Not Started' as const,
+          completedAt: null,
+          startedAt: null,
+          technician: '',
+          notes: '',
+          instructions: [...RECORD_SYSTEM_DETAILS_STEP_INSTRUCTIONS],
+          checklist: [],
+          measuredData: []
+        };
+    const existingSystemFolderStep = record.steps.find(
+      (step) => step.name === SYSTEM_FOLDERS_STEP_NAME
+    );
+    const systemFolderStep = existingSystemFolderStep
+      ? { ...existingSystemFolderStep, stage: 'Setup' }
+      : missingSteps.find((step) => step.name === SYSTEM_FOLDERS_STEP_NAME);
+    const otherSteps = [...record.steps, ...missingSteps]
+      .filter((step) =>
+        ![
+          SYSTEM_UNBOXING_STEP_NAME,
+          RECORD_SYSTEM_DETAILS_STEP_NAME,
+          SYSTEM_FOLDERS_STEP_NAME
+        ].includes(step.name) && step !== originalFirstSetupStep
+      )
+      .map((step) => step.name === LASER_GRATING_FILES_STEP_NAME
+        ? {
+            ...step,
+            instructions: (Array.isArray(step.instructions) ? step.instructions : []).map((instruction) =>
+              instruction.includes('Files are saved in My Documents')
+                ? LASER_GRATING_FILES_SAVE_INSTRUCTION
+                : instruction
+            )
+          }
+        : step);
 
     return {
       ...record,
       stages: Array.from(new Set([...(record.stages || template.stages), 'Calibration'])),
-      steps: [...record.steps, ...missingSteps],
+      steps: [unboxingStep, detailsStep, systemFolderStep || {
+        id: `step-${record.system}-system-folders-${Date.now().toString(36)}`,
+        name: SYSTEM_FOLDERS_STEP_NAME,
+        stage: 'Setup',
+        status: 'Not Started' as const,
+        completedAt: null,
+        startedAt: null,
+        technician: '',
+        notes: '',
+        instructions: [...SYSTEM_FOLDERS_STEP_INSTRUCTIONS],
+        checklist: [],
+        measuredData: []
+      }, ...otherSteps],
       laserGratingCombinations: Array.isArray(record.laserGratingCombinations)
         ? record.laserGratingCombinations.map((combination) => ({
             wavelengthNm:

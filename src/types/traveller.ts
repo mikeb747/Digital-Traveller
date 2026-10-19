@@ -15,6 +15,10 @@ export type LaserGratingFileResult =
   | { success: false; conflicts: string[] }
   | { success: false; error: string };
 
+export type SystemFolderResult =
+  | { success: true; directory: string }
+  | { success: false; error: string };
+
 export interface WorkflowStep {
   id: string;
   name: string;

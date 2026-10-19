@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   LaserGratingCombination,
   LaserGratingFileResult,
+  SystemFolderResult,
   WorkflowStep,
   StepStatus
 } from '../types/traveller';
@@ -9,6 +10,8 @@ import { StorageService } from '../services/storageService';
 import {
   LASER_GRATING_FILES_STEP_NAME,
   LASER_GRATING_SELECTION_STEP_NAME,
+  RECORD_SYSTEM_DETAILS_STEP_NAME,
+  SYSTEM_FOLDERS_STEP_NAME,
   validateLaserGratingCombinations
 } from '../services/laserGratingWorkflow';
 import { LaserGratingStepPanel } from './LaserGratingStepPanel';
@@ -20,41 +23,58 @@ import {
 interface StepDialogProps {
   step: WorkflowStep | null;
   operatorName: string;
+  theme: 'dark' | 'light';
   isOpen: boolean;
   onClose: () => void;
   onOpenWireKey?: () => void;
+  onOpenSystemDetails: () => void;
   onUpdateStatus: (stepId: string, status: StepStatus, notes?: string, technician?: string) => void;
   onToggleChecklist: (stepId: string, checklistId: string) => void;
   onUpdateMeasurement: (stepId: string, paramIndex: number, value: string) => void;
   serialNumber: string;
+  jobNumber: string;
+  partNumber: string;
+  customerName: string;
+  saveLocation: string;
   laserGratingCombinations: LaserGratingCombination[];
   onUpdateLaserGratingCombinations: (combinations: LaserGratingCombination[]) => void;
   onCreateLaserGratingFiles: (overwrite: boolean) => Promise<LaserGratingFileResult>;
+  onCreateSystemFolders: () => Promise<SystemFolderResult>;
 }
 
 export const StepDialog: React.FC<StepDialogProps> = ({
   step,
   operatorName,
+  theme,
   isOpen,
   onClose,
   onOpenWireKey,
+  onOpenSystemDetails,
   onUpdateStatus,
   onToggleChecklist,
   onUpdateMeasurement,
   serialNumber,
+  jobNumber,
+  partNumber,
+  customerName,
+  saveLocation,
   laserGratingCombinations,
   onUpdateLaserGratingCombinations,
-  onCreateLaserGratingFiles
+  onCreateLaserGratingFiles,
+  onCreateSystemFolders
 }) => {
   if (!isOpen || !step) return null;
 
   const [notes, setNotes] = useState(step.notes || '');
   const [completionError, setCompletionError] = useState<string | null>(null);
+  const [isCreatingSystemFolders, setIsCreatingSystemFolders] = useState(false);
   const [signoffTechnician, setSignoffTechnician] = useState(
     step.technician || operatorName || 'M. Brown'
   );
   const isLaserSelectionStep = step.name === LASER_GRATING_SELECTION_STEP_NAME;
   const isLaserFilesStep = step.name === LASER_GRATING_FILES_STEP_NAME;
+  const isRecordSystemDetailsStep = step.name === RECORD_SYSTEM_DETAILS_STEP_NAME;
+  const isSystemFoldersStep = step.name === SYSTEM_FOLDERS_STEP_NAME;
 
   // Keep notes and technician synchronized when step changes
   useEffect(() => {
@@ -77,12 +97,38 @@ export const StepDialog: React.FC<StepDialogProps> = ({
     };
   }, [notes, step, signoffTechnician]);
 
-  const handleMarkComplete = () => {
+  const handleMarkComplete = async () => {
+    if (
+      isRecordSystemDetailsStep &&
+      [serialNumber, customerName, jobNumber, partNumber].some((value) => !value.trim())
+    ) {
+      setCompletionError(
+        'Enter the serial number, customer name, job number, and part number before completing this step.'
+      );
+      return;
+    }
     if (isLaserSelectionStep) {
       const validationError = validateLaserGratingCombinations(laserGratingCombinations);
       if (validationError) {
         setCompletionError(validationError);
         return;
+      }
+    }
+    if (isSystemFoldersStep) {
+      setIsCreatingSystemFolders(true);
+      try {
+        const result = await onCreateSystemFolders();
+        if (!result.success) {
+          setCompletionError(result.error);
+          return;
+        }
+      } catch (error) {
+        setCompletionError(
+          error instanceof Error ? error.message : 'Could not create system folders.'
+        );
+        return;
+      } finally {
+        setIsCreatingSystemFolders(false);
       }
     }
     setCompletionError(null);
@@ -114,7 +160,7 @@ export const StepDialog: React.FC<StepDialogProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150 ${theme === 'light' ? 'step-dialog-light' : ''}`}>
       <div 
         className="w-full max-w-2xl bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150"
         role="dialog"
@@ -195,11 +241,61 @@ export const StepDialog: React.FC<StepDialogProps> = ({
             <LaserGratingStepPanel
               mode={isLaserSelectionStep ? 'selection' : 'files'}
               serialNumber={serialNumber}
+              partNumber={partNumber}
+              customerName={customerName}
+              saveLocation={saveLocation}
               combinations={laserGratingCombinations}
               onChange={onUpdateLaserGratingCombinations}
               onCreateFiles={onCreateLaserGratingFiles}
               onComplete={handleLaserFilesCreated}
             />
+          )}
+
+          {isSystemFoldersStep && (
+            <div className="rounded-lg border border-blue-800/70 bg-blue-950/30 p-3 text-xs text-slate-300">
+              Completing this step creates the system folder and its standard Customer data and
+              Internal data subfolders in the configured Save location.
+            </div>
+          )}
+
+          {isRecordSystemDetailsStep && (
+            <section className="space-y-3 rounded-lg border border-slate-800 bg-slate-950/50 p-4">
+              <div className="text-xs text-slate-300">
+                Record the serial number, customer name, job number, and part number for this system.
+              </div>
+              <dl className="grid grid-cols-2 gap-2 text-xs">
+                {[
+                  ['Serial Number', serialNumber],
+                  ['Customer Name', customerName],
+                  ['Job Number', jobNumber],
+                  ['Part Number', partNumber]
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded border border-slate-800 bg-slate-900/60 p-2">
+                    <dt className="text-slate-400">{label}</dt>
+                    <dd className="mt-0.5 font-medium text-slate-200">{value || 'Not entered'}</dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={onOpenSystemDetails}
+                  className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-500"
+                >
+                  Enter System S/N and Details
+                </button>
+                {onOpenWireKey && (
+                  <button
+                    type="button"
+                    onClick={onOpenWireKey}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/40 bg-indigo-600/20 px-3 py-2 text-xs font-semibold text-indigo-300 hover:bg-indigo-600/30"
+                  >
+                    <KeyRound className="h-3.5 w-3.5" />
+                    Get WiRE Key
+                  </button>
+                )}
+              </div>
+            </section>
           )}
 
           {completionError && (
@@ -297,22 +393,9 @@ export const StepDialog: React.FC<StepDialogProps> = ({
 
           {/* Technician Notes & Observations */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-slate-200 uppercase tracking-wide">
-                Technician Notes / Non-Conformance Details
-              </label>
-              {onOpenWireKey && (
-                <button
-                  type="button"
-                  onClick={onOpenWireKey}
-                  className="text-[11px] text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1 transition-colors"
-                  title="Generate and attach WiRE key to this procedure's notes"
-                >
-                  <KeyRound className="w-3.5 h-3.5" />
-                  <span>Get WiRE Key</span>
-                </button>
-              )}
-            </div>
+            <label className="mb-1.5 block text-xs font-semibold text-slate-200 uppercase tracking-wide">
+              Technician Notes / Non-Conformance Details
+            </label>
             <textarea
               rows={2}
               value={notes}
@@ -365,10 +448,17 @@ export const StepDialog: React.FC<StepDialogProps> = ({
               <button
                 type="button"
                 onClick={handleMarkComplete}
+                disabled={isCreatingSystemFolders}
                 className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/30 flex items-center space-x-1.5 transition-all"
               >
                 <CheckCircle className="w-3.5 h-3.5" />
-                <span>Mark Complete</span>
+                  <span>
+                    {isCreatingSystemFolders
+                      ? 'Creating folders…'
+                      : isSystemFoldersStep
+                      ? 'Create Folders & Mark Complete'
+                      : 'Mark Complete'}
+                  </span>
               </button>
             )}
           </div>

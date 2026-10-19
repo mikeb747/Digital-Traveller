@@ -24,13 +24,14 @@ import {
 } from '../services/networkShareConfigService';
 import { SystemRegistryService } from '../services/systemRegistryService';
 import { ExcelService } from '../services/excelService';
+import { StorageService } from '../services/storageService';
 
 interface AdminSettingsModalProps {
   isOpen: boolean;
   system: SystemType;
   traveller: TravellerRecord;
   theme?: 'dark' | 'light';
-  initialTab?: 'excel' | 'workflows' | 'systems';
+  initialTab?: 'excel' | 'workflows' | 'systems' | 'storage';
   onClose: () => void;
   onApplyWorkflows: (newStages: string[], newSteps: WorkflowStep[]) => void;
   onUpdateTravellerFromExcel?: (updated: TravellerRecord, message: string) => void;
@@ -50,7 +51,7 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const [activeTab, setActiveTab] = useState<'excel' | 'workflows' | 'systems'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'excel' | 'workflows' | 'systems' | 'storage'>(initialTab);
   const [registeredSystems, setRegisteredSystems] = useState<string[]>(() =>
     SystemRegistryService.getSystems()
   );
@@ -67,6 +68,7 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
   const [isCopiedPath, setIsCopiedPath] = useState(false);
   const [newSystemInput, setNewSystemInput] = useState('');
   const [newSystemDesc, setNewSystemDesc] = useState('');
+  const [saveLocation, setSaveLocation] = useState(StorageService.getSaveLocation);
 
   const multiWorkflowFileInputRef = useRef<HTMLInputElement>(null);
   const excelSyncInputRef = useRef<HTMLInputElement>(null);
@@ -119,6 +121,48 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
         text: 'All network share paths reset to default Renishaw server directories.'
       });
       setTimeout(() => setMessage(null), 3500);
+    }
+  };
+
+  const handleBrowseSaveLocation = async () => {
+    const selectDirectory = window.desktopAPI?.selectNetworkDirectory;
+    if (!selectDirectory) {
+      setMessage({
+        type: 'error',
+        text: 'Browsing for a Save location is available in the Windows desktop app. You can enter a path directly.'
+      });
+      return;
+    }
+    try {
+      const selectedDirectory = await selectDirectory();
+      if (selectedDirectory) setSaveLocation(selectedDirectory);
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: `Could not browse for a Save location: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      });
+    }
+  };
+
+  const handleSaveLocation = () => {
+    try {
+      StorageService.setSaveLocation(saveLocation);
+      setSaveLocation(StorageService.getSaveLocation());
+      setMessage({
+        type: 'success',
+        text: saveLocation.trim()
+          ? 'Save location updated.'
+          : 'Save location reset to the current user’s Documents folder.'
+      });
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: `Could not save the Save location: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      });
     }
   };
 
@@ -324,7 +368,7 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
                 Settings &amp; Production Configuration
               </h3>
               <p className="text-[11px] text-slate-400">
-                Network Share Spreadsheets &bull; Unified All-Systems Workflows &bull; System Types
+                File Storage &bull; Network Share Spreadsheets &bull; Workflows &bull; System Types
               </p>
             </div>
           </div>
@@ -392,6 +436,21 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
               <Plus className="w-3.5 h-3.5" />
               <span>Add New System</span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('storage')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all ${
+                activeTab === 'storage'
+                  ? 'bg-violet-600 text-white shadow-xs'
+                  : isDark
+                  ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+              }`}
+            >
+              <Folder className="w-3.5 h-3.5" />
+              <span>File Storage</span>
+            </button>
           </div>
 
           <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/30">
@@ -423,7 +482,63 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
             </div>
           )}
 
-          {/* TAB 1: EXCEL HUB & NETWORK SHARE LOCATIONS */}
+          {activeTab === 'storage' && (
+            <div className="space-y-4">
+              <section
+                className={`space-y-3 rounded-xl border p-4 ${
+                  isDark ? 'bg-slate-950/70 border-slate-800' : 'bg-slate-50 border-slate-200'
+                }`}
+              >
+                <div>
+                  <h4 className={`text-sm font-semibold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+                    Save location
+                  </h4>
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    System folders and generated laser/grating files are saved here. Leave blank to
+                    use the current Windows user’s Documents folder.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    type="text"
+                    value={saveLocation}
+                    onChange={(event) => setSaveLocation(event.target.value)}
+                    placeholder="Documents folder (default), or enter a local/UNC path"
+                    className={`min-w-0 flex-1 rounded-lg border px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                      isDark
+                        ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500'
+                        : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleBrowseSaveLocation}
+                    className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
+                      isDark
+                        ? 'border-slate-700 text-slate-200 hover:bg-slate-800'
+                        : 'border-slate-300 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    Browse…
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveLocation}
+                    className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-500"
+                  >
+                    Save location
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  A system folder named
+                  {' '}<span className="font-mono">&lt;Serial Number&gt;_&lt;Part Number&gt;_&lt;Customer Name&gt;</span>
+                  {' '}will contain Customer data and Internal data folders.
+                </p>
+              </section>
+            </div>
+          )}
+
+          {/* TAB: EXCEL HUB & NETWORK SHARE LOCATIONS */}
           {activeTab === 'excel' && (
             <div className="space-y-4">
               {/* System Selector for 3 locations per instrument */}

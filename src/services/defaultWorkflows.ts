@@ -1,5 +1,6 @@
 import { SystemProfile, SystemType } from '../types/traveller';
 import {
+  LASER_GRATING_FILES_SAVE_INSTRUCTION,
   LASER_GRATING_FILES_STEP_NAME,
   LASER_GRATING_SELECTION_STEP_NAME
 } from './laserGratingWorkflow';
@@ -70,7 +71,7 @@ export const SYSTEM_PROFILES: Record<SystemType, SystemProfile> = {
         stage: 'Calibration',
         instructions: [
           'Create one blank .txt file for each laser and grating combination.',
-          'Files are saved in My Documents/<serial number>/Extra Data.'
+          LASER_GRATING_FILES_SAVE_INSTRUCTION
         ]
       },
       {
@@ -208,7 +209,7 @@ export const SYSTEM_PROFILES: Record<SystemType, SystemProfile> = {
         stage: 'Calibration',
         instructions: [
           'Create one blank .txt file for each laser and grating combination.',
-          'Files are saved in My Documents/<serial number>/Extra Data.'
+          LASER_GRATING_FILES_SAVE_INSTRUCTION
         ]
       },
       {
@@ -319,7 +320,7 @@ export const SYSTEM_PROFILES: Record<SystemType, SystemProfile> = {
         stage: 'Calibration',
         instructions: [
           'Create one blank .txt file for each laser and grating combination.',
-          'Files are saved in My Documents/<serial number>/Extra Data.'
+          LASER_GRATING_FILES_SAVE_INSTRUCTION
         ]
       },
       {

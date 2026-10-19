@@ -10,7 +10,27 @@ contextBridge.exposeInMainWorld('desktopAPI', {
   readNetworkFile: (filePath) => ipcRenderer.invoke('read-network-file', filePath),
   writeNetworkFile: (filePath, data) => ipcRenderer.invoke('write-network-file', { filePath, data }),
   selectNetworkDirectory: () => ipcRenderer.invoke('select-network-directory'),
-  createLaserGratingFiles: (serialNumber, combinations, overwrite) =>
-    ipcRenderer.invoke('create-laser-grating-files', { serialNumber, combinations, overwrite }),
+  createSystemFolders: (serialNumber, partNumber, customerName, saveLocation) =>
+    ipcRenderer.invoke('create-system-folders', {
+      serialNumber,
+      partNumber,
+      customerName,
+      saveLocation
+    }),
+  createLaserGratingFiles: (
+    serialNumber,
+    partNumber,
+    customerName,
+    saveLocation,
+    combinations,
+    overwrite
+  ) => ipcRenderer.invoke('create-laser-grating-files', {
+    serialNumber,
+    partNumber,
+    customerName,
+    saveLocation,
+    combinations,
+    overwrite
+  }),
   fetchWireKey: (serialNumber) => ipcRenderer.invoke('fetch-wire-key', serialNumber)
 });
