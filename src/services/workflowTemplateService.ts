@@ -220,7 +220,6 @@ export class WorkflowTemplateService {
         SYSTEM_FOLDERS_TEMPLATE_STEP,
         {
           name: `${normalizedSystem} Optical & Sensor Calibration`,
-          stage: 'Setup',
           stage: 'Calibration',
           instructions: [
             'Align laser source with entrance aperture.',
