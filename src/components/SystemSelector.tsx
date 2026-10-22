@@ -1,8 +1,7 @@
 import React from 'react';
 import { SystemType } from '../types/traveller';
 import { SYSTEM_PROFILES } from '../services/defaultWorkflows';
-import { SystemRegistryService } from '../services/systemRegistryService';
-import { SlidersHorizontal, CheckCircle2, User, Briefcase, Tag } from 'lucide-react';
+import { SlidersHorizontal, User, Briefcase, Tag } from 'lucide-react';
 import { TechSelector } from './TechSelector';
 
 interface SystemSelectorProps {
@@ -15,7 +14,6 @@ interface SystemSelectorProps {
   operatorName: string;
   isAdmin: boolean;
   theme?: 'dark' | 'light';
-  onSelectSystem: (system: SystemType) => void;
   onChangeOperator: (name: string, isAdmin: boolean) => void;
 }
 
@@ -29,12 +27,9 @@ export const SystemSelector: React.FC<SystemSelectorProps> = ({
   operatorName,
   isAdmin,
   theme = 'dark',
-  onSelectSystem,
   onChangeOperator
 }) => {
   const profile = SYSTEM_PROFILES[currentSystem] || SYSTEM_PROFILES['inVia'];
-  // Dynamically load all registered systems (built-ins + any user added)
-  const systems: SystemType[] = SystemRegistryService.getSystems();
   const isDark = theme === 'dark';
 
   return (
@@ -43,45 +38,30 @@ export const SystemSelector: React.FC<SystemSelectorProps> = ({
         isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-slate-100 border-slate-200'
       }`}
     >
-      {/* Left: System Selector Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 flex-wrap">
-        <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 select-none">
+      {/* Left: System Display (Read-only, only selected when clicking +New) */}
+      <div className="flex items-center gap-2.5 flex-wrap select-none">
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
           <SlidersHorizontal className="w-3.5 h-3.5 text-blue-500" />
           <span>System:</span>
-        </div>
+        </span>
 
-        <div
-          className={`inline-flex rounded-lg p-1 border shadow-inner ${
-            isDark ? 'bg-slate-950/80 border-slate-800' : 'bg-white border-slate-300'
-          }`}
-        >
-          {systems.map((sys) => {
-            const isSelected = currentSystem === sys;
-            return (
-              <button
-                key={sys}
-                type="button"
-                onClick={() => onSelectSystem(sys)}
-                className={`relative px-4 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer ${
-                  isSelected
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-900/30 font-bold ring-1 ring-blue-400/30'
-                    : isDark
-                    ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                <span>{sys}</span>
-                {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-blue-200" />}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="hidden lg:flex flex-col">
-          <span className={`text-xs font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
-            {profile.displayName}
+        <div className="flex items-center gap-2">
+          <span
+            className={`px-3 py-1 rounded-md text-xs font-bold border flex items-center gap-1.5 shadow-xs ${
+              isDark
+                ? 'bg-blue-950/60 border-blue-500/40 text-blue-300 ring-1 ring-blue-500/20'
+                : 'bg-blue-50 border-blue-300 text-blue-700 ring-1 ring-blue-200'
+            }`}
+          >
+            <span>{currentSystem}</span>
           </span>
-          <span className="text-[11px] text-slate-500">{profile.tagline}</span>
+
+          <div className="flex flex-col">
+            <span className={`text-xs font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+              {profile.displayName}
+            </span>
+            <span className="text-[11px] text-slate-500 hidden sm:inline">{profile.tagline}</span>
+          </div>
         </div>
       </div>
 

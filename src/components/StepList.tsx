@@ -8,6 +8,7 @@ interface StepListProps {
   selectedStepId: string | null;
   isAdmin?: boolean;
   theme?: 'dark' | 'light';
+  width?: number;
   onSelectStep: (step: WorkflowStep) => void;
   onOpenAddStep?: () => void;
   onReorderSteps?: (reorderedSteps: WorkflowStep[]) => void;
@@ -19,6 +20,7 @@ export const StepList: React.FC<StepListProps> = ({
   selectedStepId,
   isAdmin = false,
   theme = 'dark',
+  width,
   onSelectStep,
   onOpenAddStep,
   onReorderSteps
@@ -208,7 +210,8 @@ export const StepList: React.FC<StepListProps> = ({
 
   return (
     <div
-      className={`flex flex-col h-full border-r w-full md:w-96 lg:w-[420px] flex-shrink-0 transition-colors ${
+      style={width ? { width: `${width}px` } : undefined}
+      className={`flex flex-col h-full border-r w-full md:w-[320px] flex-shrink-0 transition-colors ${
         isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
       }`}
     >

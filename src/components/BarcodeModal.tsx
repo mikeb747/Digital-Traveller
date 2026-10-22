@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, QrCode, Scan, Check, RefreshCw, User, Briefcase, Hash, Tag } from 'lucide-react';
+import { X, QrCode, Check, User, Briefcase, Hash, Tag } from 'lucide-react';
 import { SystemType } from '../types/traveller';
 
 interface BarcodeModalProps {
@@ -34,7 +34,6 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
   const [customerName, setCustomerName] = useState(currentCustomerName);
   const [jobNumber, setJobNumber] = useState(currentJobNumber);
   const [partNumber, setPartNumber] = useState(currentPartNumber);
-  const [isScanningSim, setIsScanningSim] = useState(false);
 
   // Sync state whenever modal is opened
   useEffect(() => {
@@ -45,15 +44,6 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
   }, [currentSerial, currentCustomerName, currentJobNumber, currentPartNumber, isOpen]);
 
   const prefix = currentSystem.toLowerCase() === 'invia' ? 'INV' : currentSystem.toUpperCase().slice(0, 3);
-
-  const handleSimulateScan = () => {
-    setIsScanningSim(true);
-    setTimeout(() => {
-      const generated = `${prefix}-${Math.floor(100000 + Math.random() * 900000)}`;
-      setInputSerial(generated);
-      setIsScanningSim(false);
-    }, 600);
-  };
 
   const handleApply = (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,34 +77,7 @@ export const BarcodeModal: React.FC<BarcodeModalProps> = ({
         </div>
 
         <form onSubmit={handleApply} className="p-5 space-y-4 text-xs text-slate-300 max-h-[85vh] overflow-y-auto">
-          {/* Simulated Scanner Viewport */}
-          <div className="relative bg-slate-950 rounded-lg p-5 border border-slate-800 flex flex-col items-center justify-center text-center overflow-hidden">
-            {/* Visual Laser Line Animation */}
-            <div
-              className={`absolute inset-x-0 h-0.5 bg-red-500 shadow-[0_0_8px_#ef4444] transition-all duration-700 ${
-                isScanningSim ? 'top-1/2 opacity-100 animate-pulse' : 'top-1/3 opacity-40'
-              }`}
-            />
-
-            <Scan className={`w-10 h-10 text-slate-600 mb-2 ${isScanningSim ? 'animate-pulse text-red-400' : ''}`} />
-
-            <div className="font-mono text-xs text-slate-400">
-              {isScanningSim ? 'Reading Hardware Barcode...' : 'Optical Barcode Reader Active'}
-            </div>
-            <div className="text-[10px] text-slate-500 mt-0.5">
-              Supports 1D Barcode, Code 128, DataMatrix & Optical Laser
-            </div>
-
-            <button
-              type="button"
-              onClick={handleSimulateScan}
-              disabled={isScanningSim}
-              className="mt-3 px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium flex items-center space-x-1.5 transition-colors border border-slate-700"
-            >
-              <RefreshCw className={`w-3 h-3 ${isScanningSim ? 'animate-spin text-blue-400' : ''}`} />
-              <span>Simulate Hardware Laser Scan</span>
-            </button>
-          </div>
+          {/* Direct hardware details form */}
 
           {/* Form Fields: Customer Name, Job Number, Part Number, Serial Number */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">

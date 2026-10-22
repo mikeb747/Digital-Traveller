@@ -12,7 +12,6 @@ import {
 import { StorageService } from './services/storageService';
 import { WorkflowService } from './services/workflowService';
 import { WindowFrame } from './components/WindowFrame';
-import { SystemSelector } from './components/SystemSelector';
 import { WorkflowTabs } from './components/WorkflowTabs';
 import { StepList } from './components/StepList';
 import { StepDialog } from './components/StepDialog';
@@ -20,6 +19,7 @@ import { TravellerSummary } from './components/TravellerSummary';
 import { BarcodeModal } from './components/BarcodeModal';
 import { WorkflowConfigModal } from './components/WorkflowConfigModal';
 import { ConfirmModal } from './components/ConfirmModal';
+import { NewTravellerModal } from './components/NewTravellerModal';
 import { AdminSettingsModal } from './components/AdminSettingsModal';
 import { WorkflowTemplateService } from './services/workflowTemplateService';
 import { WireKeyModal } from './components/WireKeyModal';
@@ -59,9 +59,57 @@ export const App: React.FC = () => {
   const [wireKeySerial, setWireKeySerial] = useState('');
   const [notification, setNotification] = useState<string | null>(null);
 
-  // Confirmation modals state
+  // Left pane resizeable width state (opens at 320px by default)
+  const [leftPaneWidth, setLeftPaneWidth] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('digital_traveller_left_pane_width');
+      if (saved) {
+        const val = parseInt(saved, 10);
+        if (Number.isFinite(val) && val >= 220 && val <= 750) {
+          return val;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return 320;
+  });
+  const [isResizingLeftPane, setIsResizingLeftPane] = useState(false);
+
+  // Resize drag event listeners
+  useEffect(() => {
+    if (!isResizingLeftPane) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const minWidth = 220;
+      const maxWidth = Math.max(minWidth, Math.min(750, window.innerWidth - 300));
+      const clamped = Math.max(minWidth, Math.min(maxWidth, e.clientX));
+      setLeftPaneWidth(clamped);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingLeftPane(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizingLeftPane]);
+
+  // Persist left pane width
+  useEffect(() => {
+    try {
+      localStorage.setItem('digital_traveller_left_pane_width', leftPaneWidth.toString());
+    } catch {
+      // ignore
+    }
+  }, [leftPaneWidth]);
+
+  // New Traveller modal state
   const [isNewTravellerConfirmOpen, setIsNewTravellerConfirmOpen] = useState(false);
-  const [pendingSystemSwitch, setPendingSystemSwitch] = useState<SystemType | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -73,6 +121,13 @@ export const App: React.FC = () => {
   // Persist theme
   useEffect(() => {
     localStorage.setItem('digital_traveller_theme', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+    } else {
+      document.documentElement.classList.add('light');
+      document.documentElement.classList.remove('dark');
+    }
   }, [theme]);
 
   // Auto clear notification
@@ -127,36 +182,6 @@ export const App: React.FC = () => {
     } else {
       setActiveStage(tabName);
     }
-  };
-
-  // Request system switch: opens confirmation box with reset warning
-  const handleRequestSystemSwitch = (newSystem: SystemType) => {
-    if (newSystem === traveller.system) return;
-    setPendingSystemSwitch(newSystem);
-  };
-
-  // Confirm system switch: resets workflow for the selected system
-  const handleConfirmSystemSwitch = () => {
-    if (!pendingSystemSwitch) return;
-
-    const newSystem = pendingSystemSwitch;
-    // Create new traveller with reset workflow and blank serial
-    const newRec = StorageService.createNewTraveller(
-      newSystem,
-      '',
-      traveller.customerName,
-      traveller.jobNumber,
-      traveller.partNumber,
-      traveller.operatorName
-    );
-
-    StorageService.saveTraveller(newRec);
-    setTraveller(newRec);
-    setActiveStage(newRec.activeStage || 'Setup');
-    setSelectedStepId(null);
-    setIsStepDialogOpen(false);
-    setPendingSystemSwitch(null);
-    setNotification(`Switched to ${newSystem}. Workflow reset.`);
   };
 
   // Handle step selection from list: ONLY select the step, DO NOT open dialog
@@ -280,22 +305,26 @@ export const App: React.FC = () => {
     setIsNewTravellerConfirmOpen(true);
   };
 
-  // Confirm New Traveller creation: resets workflow
-  const handleConfirmNewTraveller = () => {
+  // Confirm New Traveller creation with chosen system model
+  const handleConfirmNewTraveller = (selectedSystem: SystemType) => {
     const newRec = StorageService.createNewTraveller(
-      traveller.system,
+      selectedSystem,
       '', // Blank S/N until entered
-      traveller.customerName,
-      traveller.jobNumber,
-      traveller.partNumber,
+      '', // Blank Customer
+      '', // Blank Job #
+      '', // Blank Part #
       traveller.operatorName
     );
+    StorageService.saveTraveller(newRec);
     setTraveller(newRec);
-    setSelectedStepId(null);
+    // Select Tab 1 (first stage) and Step 1 (first step in that stage)
+    const firstStage = (newRec.stages && newRec.stages[0]) || 'Setup';
+    setActiveStage(firstStage);
+    const firstStep = newRec.steps.find((s) => s.stage === firstStage);
+    setSelectedStepId(firstStep ? firstStep.id : null);
     setIsStepDialogOpen(false);
-    setActiveStage('Setup');
     setIsNewTravellerConfirmOpen(false);
-    setNotification(`New digital traveller created for ${traveller.system}. Workflow reset.`);
+    setNotification(`New Digital Traveller created for ${selectedSystem}.`);
   };
 
   // Handle Export to JSON
@@ -515,22 +544,7 @@ export const App: React.FC = () => {
         className="hidden"
       />
 
-      {/* System Selector Header */}
-      <SystemSelector
-        currentSystem={traveller.system}
-        serialNumber={traveller.serialNumber}
-        customerName={traveller.customerName}
-        jobNumber={traveller.jobNumber}
-        partNumber={traveller.partNumber}
-        workOrderNumber={traveller.workOrderNumber}
-        operatorName={traveller.operatorName}
-        isAdmin={isAdmin}
-        theme={theme}
-        onSelectSystem={handleRequestSystemSwitch}
-        onChangeOperator={handleChangeOperator}
-      />
-
-      {/* Tabs Across the Top: Setup, Calibration, Final Test & Release, plus Admin +Add tab */}
+      {/* Tabs Across the Top with snug metadata pills (S/N, Customer, Job, Part) & Tech selector on the right */}
       <WorkflowTabs
         currentStage={activeStage}
         traveller={traveller}
@@ -538,10 +552,16 @@ export const App: React.FC = () => {
         theme={theme}
         onSelectStage={handleSelectStage}
         onAddTab={handleAddTab}
+        onChangeOperator={handleChangeOperator}
+        onOpenBarcodeModal={() => setIsBarcodeModalOpen(true)}
       />
 
       {/* Split Window Body: Left Workflow Steps | Right Instrument Inspector & Summary */}
-      <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
+      <div
+        className={`flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden ${
+          isResizingLeftPane ? 'select-none cursor-col-resize' : ''
+        }`}
+      >
         {/* Left Side: Workflow Steps List with Name, Status, Timestamp */}
         <StepList
           steps={traveller.steps}
@@ -549,10 +569,41 @@ export const App: React.FC = () => {
           selectedStepId={selectedStepId}
           isAdmin={isAdmin}
           theme={theme}
+          width={leftPaneWidth}
           onSelectStep={handleSelectStep}
           onOpenAddStep={() => setIsConfigModalOpen(true)}
           onReorderSteps={handleReorderSteps}
         />
+
+        {/* Resizable Divider Handle */}
+        <div
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setIsResizingLeftPane(true);
+          }}
+          onDoubleClick={() => setLeftPaneWidth(320)}
+          title="Drag to resize left pane (Double-click to reset to 320px)"
+          role="separator"
+          aria-orientation="vertical"
+          className={`hidden md:flex items-center justify-center w-2 -ml-1 z-10 cursor-col-resize select-none transition-colors group flex-shrink-0 ${
+            isResizingLeftPane
+              ? 'bg-blue-600'
+              : theme === 'dark'
+              ? 'hover:bg-blue-500/40 bg-transparent'
+              : 'hover:bg-blue-400/40 bg-transparent'
+          }`}
+        >
+          {/* Subtle tactile grip line */}
+          <div
+            className={`h-8 w-1 rounded-full transition-colors ${
+              isResizingLeftPane
+                ? 'bg-white'
+                : theme === 'dark'
+                ? 'bg-slate-700 group-hover:bg-blue-400'
+                : 'bg-slate-300 group-hover:bg-blue-500'
+            }`}
+          />
+        </div>
 
         {/* Right Side: Step Details & Calibration Audit Trail */}
         <TravellerSummary
@@ -578,6 +629,7 @@ export const App: React.FC = () => {
           setIsWireKeyModalOpen(true);
         }}
         onOpenSystemDetails={() => setIsBarcodeModalOpen(true)}
+        onUpdateDetails={handleUpdateDetails}
         onUpdateStatus={handleUpdateStepStatus}
         onToggleChecklist={handleToggleChecklist}
         onUpdateMeasurement={handleUpdateMeasurement}
@@ -658,29 +710,13 @@ export const App: React.FC = () => {
       />
 
       {/* Confirmation Modal for +New Traveller */}
-      <ConfirmModal
+      {/* New Traveller Modal Dialog (Select instrument system) */}
+      <NewTravellerModal
         isOpen={isNewTravellerConfirmOpen}
-        title="Start New Traveller"
-        message={`Are you sure you want to create a new Digital Traveller for ${traveller.system}? The current workflow procedures, checklist completions, and measurement values will be reset.`}
-        confirmText="Confirm & Reset Workflow"
-        cancelText="Cancel"
-        isDestructive={true}
+        currentSystem={traveller.system}
         theme={theme}
         onConfirm={handleConfirmNewTraveller}
         onCancel={() => setIsNewTravellerConfirmOpen(false)}
-      />
-
-      {/* Confirmation Modal for Switching System */}
-      <ConfirmModal
-        isOpen={pendingSystemSwitch !== null}
-        title={`Switch System to ${pendingSystemSwitch}`}
-        message={`Are you sure you want to switch to ${pendingSystemSwitch}? The active workflow procedures and calibration checklist will be reset for the ${pendingSystemSwitch} model.`}
-        confirmText={`Switch to ${pendingSystemSwitch}`}
-        cancelText="Cancel"
-        isDestructive={true}
-        theme={theme}
-        onConfirm={handleConfirmSystemSwitch}
-        onCancel={() => setPendingSystemSwitch(null)}
       />
     </WindowFrame>
   );

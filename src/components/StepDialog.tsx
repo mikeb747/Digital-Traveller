@@ -17,7 +17,7 @@ import {
 import { LaserGratingStepPanel } from './LaserGratingStepPanel';
 import { 
   X, CheckCircle, Clock, RotateCcw, AlertTriangle, FileText, 
-  CheckSquare, Square, Check, UserCheck, User, KeyRound 
+  CheckSquare, Square, Check, UserCheck, User, KeyRound, Briefcase, Tag, Hash 
 } from 'lucide-react';
 
 interface StepDialogProps {
@@ -27,10 +27,16 @@ interface StepDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenWireKey?: () => void;
-  onOpenSystemDetails: () => void;
+  onOpenSystemDetails?: () => void;
   onUpdateStatus: (stepId: string, status: StepStatus, notes?: string, technician?: string) => void;
   onToggleChecklist: (stepId: string, checklistId: string) => void;
   onUpdateMeasurement: (stepId: string, paramIndex: number, value: string) => void;
+  onUpdateDetails?: (details: {
+    serialNumber: string;
+    customerName: string;
+    jobNumber: string;
+    partNumber: string;
+  }) => void;
   serialNumber: string;
   jobNumber: string;
   partNumber: string;
@@ -53,6 +59,7 @@ export const StepDialog: React.FC<StepDialogProps> = ({
   onUpdateStatus,
   onToggleChecklist,
   onUpdateMeasurement,
+  onUpdateDetails,
   serialNumber,
   jobNumber,
   partNumber,
@@ -76,12 +83,44 @@ export const StepDialog: React.FC<StepDialogProps> = ({
   const isRecordSystemDetailsStep = step.name === RECORD_SYSTEM_DETAILS_STEP_NAME;
   const isSystemFoldersStep = step.name === SYSTEM_FOLDERS_STEP_NAME;
 
-  // Keep notes and technician synchronized when step changes
+  // Local state for inline system details inputs on the Setup procedure page
+  const [localSerial, setLocalSerial] = useState(serialNumber || '');
+  const [localCustomer, setLocalCustomer] = useState(customerName || '');
+  const [localJob, setLocalJob] = useState(jobNumber || '');
+  const [localPart, setLocalPart] = useState(partNumber || '');
+
+  // Keep notes, technician and details synchronized when step or props change
   useEffect(() => {
     setNotes(step.notes || '');
     setSignoffTechnician(step.technician || operatorName || 'M. Brown');
     setCompletionError(null);
   }, [step, operatorName]);
+
+  useEffect(() => {
+    setLocalSerial(serialNumber || '');
+    setLocalCustomer(customerName || '');
+    setLocalJob(jobNumber || '');
+    setLocalPart(partNumber || '');
+  }, [serialNumber, customerName, jobNumber, partNumber, isOpen]);
+
+  const handleDetailChange = (field: 'serial' | 'customer' | 'job' | 'part', value: string) => {
+    const s = field === 'serial' ? value : localSerial;
+    const c = field === 'customer' ? value : localCustomer;
+    const j = field === 'job' ? value : localJob;
+    const p = field === 'part' ? value : localPart;
+
+    if (field === 'serial') setLocalSerial(value);
+    if (field === 'customer') setLocalCustomer(value);
+    if (field === 'job') setLocalJob(value);
+    if (field === 'part') setLocalPart(value);
+
+    onUpdateDetails?.({
+      serialNumber: s,
+      customerName: c,
+      jobNumber: j,
+      partNumber: p
+    });
+  };
 
   // Press Escape on keyboard to close without completing
   useEffect(() => {
@@ -98,14 +137,19 @@ export const StepDialog: React.FC<StepDialogProps> = ({
   }, [notes, step, signoffTechnician]);
 
   const handleMarkComplete = async () => {
-    if (
-      isRecordSystemDetailsStep &&
-      [serialNumber, customerName, jobNumber, partNumber].some((value) => !value.trim())
-    ) {
-      setCompletionError(
-        'Enter the serial number, customer name, job number, and part number before completing this step.'
-      );
-      return;
+    if (isRecordSystemDetailsStep) {
+      if ([localSerial, localCustomer, localJob, localPart].some((value) => !value.trim())) {
+        setCompletionError(
+          'Enter the serial number, customer name, job number, and part number before completing this step.'
+        );
+        return;
+      }
+      onUpdateDetails?.({
+        serialNumber: localSerial.trim(),
+        customerName: localCustomer.trim(),
+        jobNumber: localJob.trim(),
+        partNumber: localPart.trim()
+      });
     }
     if (isLaserSelectionStep) {
       const validationError = validateLaserGratingCombinations(laserGratingCombinations);
@@ -259,41 +303,83 @@ export const StepDialog: React.FC<StepDialogProps> = ({
           )}
 
           {isRecordSystemDetailsStep && (
-            <section className="space-y-3 rounded-lg border border-slate-800 bg-slate-950/50 p-4">
-              <div className="text-xs text-slate-300">
-                Record the serial number, customer name, job number, and part number for this system.
-              </div>
-              <dl className="grid grid-cols-2 gap-2 text-xs">
-                {[
-                  ['Serial Number', serialNumber],
-                  ['Customer Name', customerName],
-                  ['Job Number', jobNumber],
-                  ['Part Number', partNumber]
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded border border-slate-800 bg-slate-900/60 p-2">
-                    <dt className="text-slate-400">{label}</dt>
-                    <dd className="mt-0.5 font-medium text-slate-200">{value || 'Not entered'}</dd>
-                  </div>
-                ))}
-              </dl>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={onOpenSystemDetails}
-                  className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-500"
-                >
-                  Enter System S/N and Details
-                </button>
+            <section className="space-y-4 rounded-lg border border-slate-800 bg-slate-950/50 p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-slate-200 uppercase tracking-wide">
+                  Record System Numbers &amp; Details
+                </span>
                 {onOpenWireKey && (
                   <button
                     type="button"
                     onClick={onOpenWireKey}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/40 bg-indigo-600/20 px-3 py-2 text-xs font-semibold text-indigo-300 hover:bg-indigo-600/30"
+                    className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-lg border border-indigo-500/40 bg-indigo-600/20 px-2.5 py-1 text-xs font-semibold text-indigo-300 hover:bg-indigo-600/30 transition-colors"
                   >
                     <KeyRound className="h-3.5 w-3.5" />
                     Get WiRE Key
                   </button>
                 )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                {/* Serial Number */}
+                <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-2.5">
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1 flex items-center gap-1.5">
+                    <Hash className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Serial Number (S/N)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={localSerial}
+                    onChange={(e) => handleDetailChange('serial', e.target.value)}
+                    placeholder="e.g. 12341234"
+                    className="w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-1.5 font-mono text-xs font-semibold text-blue-400 placeholder-slate-600 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Customer Name */}
+                <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-2.5">
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1 flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Customer Name</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={localCustomer}
+                    onChange={(e) => handleDetailChange('customer', e.target.value)}
+                    placeholder="e.g. Spunkt Team"
+                    className="w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-100 placeholder-slate-600 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Job Number */}
+                <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-2.5">
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1 flex items-center gap-1.5">
+                    <Briefcase className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Job Number</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={localJob}
+                    onChange={(e) => handleDetailChange('job', e.target.value)}
+                    placeholder="e.g. 123951829431"
+                    className="w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-1.5 font-mono text-xs text-slate-100 placeholder-slate-600 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Part Number */}
+                <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-2.5">
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1 flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Part Number</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={localPart}
+                    onChange={(e) => handleDetailChange('part', e.target.value)}
+                    placeholder="e.g. INVIA LONG NUMBER"
+                    className="w-full rounded border border-slate-700 bg-slate-950 px-2.5 py-1.5 font-mono text-xs text-slate-100 placeholder-slate-600 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
               </div>
             </section>
           )}
