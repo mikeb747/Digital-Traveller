@@ -32,5 +32,19 @@ contextBridge.exposeInMainWorld('desktopAPI', {
     combinations,
     overwrite
   }),
+  searchCleanupFolders: () => ipcRenderer.invoke('search-cleanup-folders'),
+  deleteCleanupFolders: (paths) => ipcRenderer.invoke('delete-cleanup-folders', paths),
+  searchCleanupRegistry: () => ipcRenderer.invoke('search-cleanup-registry'),
+  deleteCleanupRegistry: (paths) => ipcRenderer.invoke('delete-cleanup-registry', paths),
+  restoreCleanupToolbar: (registryPath, installDirectory, targetIndex, overwrite) =>
+    ipcRenderer.invoke('restore-cleanup-toolbar', {
+      registryPath,
+      installDirectory,
+      targetIndex,
+      overwrite
+    }),
+  searchWireUninstallEntries: () => ipcRenderer.invoke('search-wire-uninstall-entries'),
+  launchWireUninstall: (registryPath) =>
+    ipcRenderer.invoke('launch-wire-uninstall', registryPath),
   fetchWireKey: (serialNumber) => ipcRenderer.invoke('fetch-wire-key', serialNumber)
 });

@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, net, Tray, Menu, nativeImage, power
 const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const pcCleanup = require('./pcCleanup.cjs');
 
 // Send the signed-in Windows user's credentials (NTLM/Kerberos) to spd-apps automatically.
 // Both spellings are set because Chromium renamed this switch across versions.
@@ -356,6 +357,55 @@ ipcMain.handle('create-laser-grating-files', async (event, request) => {
     return { success: false, error: `Could not create the files: ${err.message}` };
   }
 });
+
+async function handleCleanupIpc(operation, successMessage) {
+  try {
+    const data = await operation();
+    return { success: true, data, message: successMessage };
+  } catch (err) {
+    console.error('PC cleanup action failed:', err);
+    return { success: false, error: err.message || 'The PC cleanup action failed.' };
+  }
+}
+
+ipcMain.handle('search-cleanup-folders', () =>
+  handleCleanupIpc(() => pcCleanup.searchCleanupFolders(), 'Folder search completed.')
+);
+
+ipcMain.handle('delete-cleanup-folders', (event, paths) =>
+  handleCleanupIpc(() => pcCleanup.deleteCleanupFolders(paths), 'Selected folders deleted.')
+);
+
+ipcMain.handle('search-cleanup-registry', () =>
+  handleCleanupIpc(() => pcCleanup.searchCleanupRegistry(), 'Registry search completed.')
+);
+
+ipcMain.handle('delete-cleanup-registry', (event, paths) =>
+  handleCleanupIpc(() => pcCleanup.deleteCleanupRegistry(paths), 'Selected registry keys deleted.')
+);
+
+ipcMain.handle('restore-cleanup-toolbar', async (event, request) => {
+  try {
+    const result = await pcCleanup.restoreCleanupToolbar(request);
+    if (!result.success) return result;
+    return {
+      success: true,
+      data: undefined,
+      message: 'WiRE toolbar setting restored.'
+    };
+  } catch (err) {
+    console.error('PC cleanup toolbar restore failed:', err);
+    return { success: false, error: err.message || 'The toolbar setting could not be restored.' };
+  }
+});
+
+ipcMain.handle('search-wire-uninstall-entries', () =>
+  handleCleanupIpc(() => pcCleanup.searchWireUninstallEntries(), 'WiRE uninstall search completed.')
+);
+
+ipcMain.handle('launch-wire-uninstall', (event, registryPath) =>
+  handleCleanupIpc(() => pcCleanup.launchWireUninstall(registryPath), 'Windows uninstaller started.')
+);
 
 // Automatic WiRE Key fetch.
 // POSTs sn=<serial> to spd-apps using the signed-in Windows user's credentials and reads

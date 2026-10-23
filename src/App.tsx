@@ -23,6 +23,7 @@ import { NewTravellerModal } from './components/NewTravellerModal';
 import { AdminSettingsModal } from './components/AdminSettingsModal';
 import { WorkflowTemplateService } from './services/workflowTemplateService';
 import { WireKeyModal } from './components/WireKeyModal';
+import { PcCleanupPanel } from './components/PcCleanupPanel';
 import {
   RECORD_SYSTEM_DETAILS_STEP_INSTRUCTIONS,
   RECORD_SYSTEM_DETAILS_STEP_NAME,
@@ -56,6 +57,7 @@ export const App: React.FC = () => {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
   const [isWireKeyModalOpen, setIsWireKeyModalOpen] = useState(false);
+  const [isCleanupOpen, setIsCleanupOpen] = useState(false);
   const [wireKeySerial, setWireKeySerial] = useState('');
   const [notification, setNotification] = useState<string | null>(null);
 
@@ -147,6 +149,7 @@ export const App: React.FC = () => {
 
   // Handle stage selection
   const handleSelectStage = (stage: WorkflowStage) => {
+    setIsCleanupOpen(false);
     setActiveStage(stage);
     setTraveller((prev) => ({
       ...prev,
@@ -554,9 +557,17 @@ export const App: React.FC = () => {
         onAddTab={handleAddTab}
         onChangeOperator={handleChangeOperator}
         onOpenBarcodeModal={() => setIsBarcodeModalOpen(true)}
+        isCleanupOpen={isCleanupOpen}
+        onOpenCleanup={() => {
+          setIsCleanupOpen(true);
+          setSelectedStepId(null);
+        }}
       />
 
       {/* Split Window Body: Left Workflow Steps | Right Instrument Inspector & Summary */}
+      {isCleanupOpen ? (
+        <PcCleanupPanel theme={theme} />
+      ) : (
       <div
         className={`flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden ${
           isResizingLeftPane ? 'select-none cursor-col-resize' : ''
@@ -616,6 +627,7 @@ export const App: React.FC = () => {
           }}
         />
       </div>
+      )}
 
       {/* Step Instruction & Execution Modal Dialog */}
       <StepDialog

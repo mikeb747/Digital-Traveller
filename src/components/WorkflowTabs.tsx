@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { WorkflowStage, TravellerRecord } from '../types/traveller';
 import { WorkflowService } from '../services/workflowService';
-import { Wrench, Compass, Award, CheckCircle, Plus, Layers, X, User, Briefcase, Tag } from 'lucide-react';
+import { Wrench, Compass, Award, CheckCircle, Plus, Layers, X, User, Briefcase, Tag, Trash2 } from 'lucide-react';
 import { TechSelector } from './TechSelector';
 
 interface WorkflowTabsProps {
@@ -13,6 +13,8 @@ interface WorkflowTabsProps {
   onAddTab?: (tabName: string) => void;
   onChangeOperator?: (name: string, isAdmin: boolean) => void;
   onOpenBarcodeModal?: () => void;
+  isCleanupOpen?: boolean;
+  onOpenCleanup?: () => void;
 }
 
 export const WorkflowTabs: React.FC<WorkflowTabsProps> = ({
@@ -23,7 +25,9 @@ export const WorkflowTabs: React.FC<WorkflowTabsProps> = ({
   onSelectStage,
   onAddTab,
   onChangeOperator,
-  onOpenBarcodeModal
+  onOpenBarcodeModal,
+  isCleanupOpen = false,
+  onOpenCleanup
 }) => {
   const [isAddingTab, setIsAddingTab] = useState(false);
   const [newTabName, setNewTabName] = useState('');
@@ -151,6 +155,27 @@ export const WorkflowTabs: React.FC<WorkflowTabsProps> = ({
             </button>
           );
         })}
+
+        {onOpenCleanup && (
+          <button
+            type="button"
+            onClick={onOpenCleanup}
+            className={`group relative flex items-center space-x-2 px-3.5 py-2 text-xs font-semibold rounded-t-lg transition-all border-t border-x ${
+              isCleanupOpen
+                ? isDark
+                  ? 'bg-slate-950 text-amber-300 border-slate-700/80'
+                  : 'bg-white text-amber-700 border-slate-300'
+                : isDark
+                  ? 'bg-slate-900/60 text-slate-400 border-transparent hover:text-amber-200 hover:bg-slate-800/40'
+                  : 'bg-slate-100 text-slate-600 border-transparent hover:text-amber-700 hover:bg-slate-200/60'
+            }`}
+            title="Final PC cleanup"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            <span className="tracking-tight whitespace-nowrap">PC Cleanup</span>
+            {isCleanupOpen && <span className="absolute bottom-[-1px] left-0 right-0 h-[2px] bg-amber-500 rounded-t-sm" />}
+          </button>
+        )}
 
         {/* + Add tab: Visible ONLY when user selects Admin */}
         {isAdmin && (

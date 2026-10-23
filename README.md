@@ -10,7 +10,7 @@ A Digital 'Manufacturing Traveller(En-GB)/Traveler(En-US)' used to improve workf
 You **do not** need Node.js or any developer tools installed on your test PC. 
 
 #### Method A: Download directly from GitHub Actions (Latest Automated Build)
-1. Go to your repository on GitHub: `https://github.com/<your-username>/digital-traveller`
+1. Go to your repository on GitHub: `https://github.com/mikeb747/digital-traveller`
 2. Click on the **Actions** tab at the top.
 3. In the left sidebar, click **Build Windows Standalone Executable**.
 4. Click on the latest workflow run (or click **Run workflow** $\to$ **Run workflow** to generate a fresh one anytime).
@@ -51,6 +51,16 @@ The application features a built-in **Excel Hub** (accessed via the top title ba
 ## 🔬 Laser & Grating Calibration Files
 
 In the **Calibration** stage, enter each laser wavelength and grating density combination, then open **Create Extra Data Files** to create one blank `.txt` file per combination. Files are saved under `My Documents\<serial number>\Extra Data` using names such as `532nm_2400.txt`. If any target file already exists, the app asks before replacing it. A traveller serial number is required.
+
+---
+
+## 🧹 Final PC Cleanup
+
+The Windows desktop app includes a **PC Cleanup** tab for end-of-test-PC cleanup. Searches and changes are separate actions: review the discovered folders or registry keys, select the targets, and confirm before deleting. Folder and registry deletion is permanent.
+
+The folder search checks the listed Renishaw `wdfshell`, `WiRE*`, and per-user AppData locations. Registry search is limited to the specified WiRE keys under `HKCU\Software\Renishaw` / `HKCU\Software\Renishaw plc` and the `HKLM\SOFTWARE\WOW6432Node\Renishaw` key on 64-bit Windows (or `HKLM\SOFTWARE\Renishaw` on 32-bit Windows). WiRE uninstall is launched from its registered Windows uninstall entry.
+
+Toolbar restore requires a discovered `WiREInterface.exe` registry key and a WiRE installation folder found by the folder search. The app updates the version-specific procedure-file paths in the supplied toolbar data. If `Custom toolbar\0` already has a `data` value, choose to add the value to slot 1, overwrite slot 0, or cancel.
 
 ---
 
