@@ -136,6 +136,93 @@ async function searchCleanupFolders() {
   return results;
 }
 
+function getArchiveDocumentsDirectory(documentsDirectory) {
+  if (typeof documentsDirectory !== 'string' || !path.win32.isAbsolute(documentsDirectory)) {
+    throw new Error('The current user’s Documents folder could not be resolved.');
+  }
+  return path.win32.normalize(documentsDirectory);
+}
+
+function isSystemResultsFolderName(name) {
+  return name !== '.' &&
+    name !== '..' &&
+    name.toLowerCase() !== 'archive' &&
+    /^[^_]+_[^_]+$/.test(name);
+}
+
+async function searchArchiveSystemResults(documentsDirectory) {
+  requireWindows();
+  const documentsPath = getArchiveDocumentsDirectory(documentsDirectory);
+  const entries = await fs.promises.readdir(documentsPath, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isDirectory() && isSystemResultsFolderName(entry.name))
+    .map((entry) => ({
+      path: path.win32.join(documentsPath, entry.name),
+      category: 'System results'
+    }));
+}
+
+async function archiveSystemResults(requestedPaths, documentsDirectory) {
+  requireWindows();
+  if (!Array.isArray(requestedPaths) || requestedPaths.length === 0) {
+    throw new Error('Select at least one system results folder to archive.');
+  }
+
+  const documentsPath = getArchiveDocumentsDirectory(documentsDirectory);
+  const archivePath = path.win32.join(documentsPath, 'Archive');
+  const approved = new Map(
+    (await searchArchiveSystemResults(documentsPath))
+      .map((item) => [item.path.toLowerCase(), item.path])
+  );
+  const sources = requestedPaths.map((requestedPath) => {
+    if (typeof requestedPath !== 'string') {
+      throw new Error('Invalid system results folder path received.');
+    }
+    const source = approved.get(path.win32.normalize(requestedPath).toLowerCase());
+    if (!source) {
+      throw new Error(`Refusing to archive a folder outside the current user’s Documents system results: ${requestedPath}`);
+    }
+    return source;
+  });
+  if (new Set(sources.map((source) => source.toLowerCase())).size !== sources.length) {
+    throw new Error('A system results folder was selected more than once.');
+  }
+
+  try {
+    const archiveStat = await fs.promises.lstat(archivePath);
+    if (!archiveStat.isDirectory() || archiveStat.isSymbolicLink()) {
+      throw new Error('The Archive path exists but is not a regular folder.');
+    }
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+
+  for (const source of sources) {
+    const destination = path.win32.join(archivePath, path.win32.basename(source));
+    try {
+      await fs.promises.lstat(destination);
+      throw new Error(`A folder named "${path.win32.basename(source)}" already exists in Archive.`);
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
+
+  await fs.promises.mkdir(archivePath, { recursive: true });
+  const moved = [];
+  for (const source of sources) {
+    const destination = path.win32.join(archivePath, path.win32.basename(source));
+    try {
+      await fs.promises.rename(source, destination);
+      moved.push(source);
+    } catch (error) {
+      throw new Error(
+        `Moved ${moved.length} folder(s), then failed to archive "${source}": ${error.message}`
+      );
+    }
+  }
+  return moved;
+}
+
 async function deleteCleanupFolders(requestedPaths) {
   requireWindows();
   if (!Array.isArray(requestedPaths) || requestedPaths.length === 0) {
@@ -475,6 +562,8 @@ async function launchWireUninstall(registryPath) {
 module.exports = {
   searchCleanupFolders,
   deleteCleanupFolders,
+  searchArchiveSystemResults,
+  archiveSystemResults,
   searchCleanupRegistry,
   deleteCleanupRegistry,
   restoreCleanupToolbar,

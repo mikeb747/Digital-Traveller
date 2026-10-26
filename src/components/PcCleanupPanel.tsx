@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   AlertTriangle,
+  Archive,
   CheckCircle2,
   Database,
   FileSearch,
@@ -23,6 +24,8 @@ interface PcCleanupPanelProps {
 export const PcCleanupPanel: React.FC<PcCleanupPanelProps> = ({ theme }) => {
   const [folders, setFolders] = useState<CleanupFolder[]>([]);
   const [selectedFolders, setSelectedFolders] = useState<string[]>([]);
+  const [archiveFolders, setArchiveFolders] = useState<CleanupFolder[]>([]);
+  const [selectedArchiveFolders, setSelectedArchiveFolders] = useState<string[]>([]);
   const [restoreInstallDirectory, setRestoreInstallDirectory] = useState('');
   const [registryKeys, setRegistryKeys] = useState<CleanupRegistryKey[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
@@ -86,6 +89,31 @@ export const PcCleanupPanel: React.FC<PcCleanupPanelProps> = ({ theme }) => {
     },
     'Folder search completed.'
   );
+
+  const searchArchiveFolders = () => runAction(
+    'search-archive-folders',
+    () => window.desktopAPI!.searchArchiveSystemResults(),
+    (results) => {
+      setArchiveFolders(results);
+      setSelectedArchiveFolders([]);
+    },
+    'System results search completed.'
+  );
+
+  const archiveSelectedFolders = () => {
+    if (selectedArchiveFolders.length === 0 || !window.confirm(
+      `Move ${selectedArchiveFolders.length} selected system results folder(s) into Documents\\Archive?`
+    )) return;
+    void runAction(
+      'archive-system-results',
+      () => window.desktopAPI!.archiveSystemResults(selectedArchiveFolders),
+      (moved) => {
+        setArchiveFolders((current) => current.filter((folder) => !moved.includes(folder.path)));
+        setSelectedArchiveFolders([]);
+      },
+      'Selected system results moved to Documents\\Archive.'
+    );
+  };
 
   const deleteFolders = () => {
     if (selectedFolders.length === 0 || !window.confirm(
@@ -251,7 +279,7 @@ export const PcCleanupPanel: React.FC<PcCleanupPanelProps> = ({ theme }) => {
     <div className={`flex-1 overflow-y-auto p-5 ${isDark ? 'bg-slate-950' : 'bg-slate-50'}`}>
       <div className="mx-auto max-w-5xl space-y-5">
         <header>
-          <h1 className={`text-xl font-bold ${text}`}>Final PC cleanup</h1>
+          <h1 className={`text-xl font-bold ${text}`}>Final PC Cleanup</h1>
           <p className={`mt-1 text-sm ${muted}`}>
             Search first, review each result, then run each cleanup action separately. Deletions are permanent.
           </p>
@@ -274,6 +302,54 @@ export const PcCleanupPanel: React.FC<PcCleanupPanelProps> = ({ theme }) => {
             <span>{message.text}</span>
           </div>
         )}
+
+        <section className={`rounded-xl border p-4 ${panel}`}>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className={`flex items-center gap-2 font-semibold ${text}`}><Unplug className="h-4 w-4" /> Uninstall WiRE</h2>
+              <p className={`mt-1 text-xs ${muted}`}>Find registered WiRE uninstallers, then launch the selected Windows uninstaller.</p>
+            </div>
+            <button className={`${button} bg-blue-600 text-white hover:bg-blue-500`} disabled={!isDesktop || !!busyAction} onClick={() => void searchUninstallEntries()}>
+              {busyAction === 'search-uninstall' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <FileSearch className="h-4 w-4" />}
+              Find installed WiRE
+            </button>
+          </div>
+          {uninstallEntries.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              <select value={selectedUninstall} onChange={(event) => setSelectedUninstall(event.target.value)} className={`min-w-0 flex-1 rounded border px-2 py-2 text-xs ${input}`}>
+                {uninstallEntries.map((entry) => (
+                  <option key={entry.registryPath} value={entry.registryPath}>
+                    {entry.displayName}{entry.displayVersion ? ` (${entry.displayVersion})` : ''}
+                  </option>
+                ))}
+              </select>
+              <button className={`${button} bg-amber-600 text-white hover:bg-amber-500`} disabled={!isDesktop || !!busyAction} onClick={launchUninstall}>
+                <Unplug className="h-4 w-4" /> Open Windows uninstaller
+              </button>
+            </div>
+          ) : (
+            <p className={`text-sm ${muted}`}>No uninstall entries searched yet.</p>
+          )}
+        </section>
+
+        <section className={`rounded-xl border p-4 ${panel}`}>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className={`flex items-center gap-2 font-semibold ${text}`}><Archive className="h-4 w-4" /> Archive System Results</h2>
+              <p className={`mt-1 text-xs ${muted}`}>Find system result folders in your Documents folder and move selected folders into Documents\Archive.</p>
+            </div>
+            <button className={`${button} bg-blue-600 text-white hover:bg-blue-500`} disabled={!isDesktop || !!busyAction} onClick={() => void searchArchiveFolders()}>
+              {busyAction === 'search-archive-folders' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <FileSearch className="h-4 w-4" />}
+              Search results
+            </button>
+          </div>
+          {renderList(archiveFolders, selectedArchiveFolders, (path) =>
+            toggleSelected(selectedArchiveFolders, path, setSelectedArchiveFolders)
+          )}
+          <button className={`${button} mt-3 bg-amber-600 text-white hover:bg-amber-500`} disabled={!isDesktop || !!busyAction || selectedArchiveFolders.length === 0} onClick={archiveSelectedFolders}>
+            <Archive className="h-4 w-4" /> Move selected to Archive
+          </button>
+        </section>
 
         <section className={`rounded-xl border p-4 ${panel}`}>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -339,34 +415,6 @@ export const PcCleanupPanel: React.FC<PcCleanupPanelProps> = ({ theme }) => {
           )}
         </section>
 
-        <section className={`rounded-xl border p-4 ${panel}`}>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className={`flex items-center gap-2 font-semibold ${text}`}><Unplug className="h-4 w-4" /> Uninstall WiRE</h2>
-              <p className={`mt-1 text-xs ${muted}`}>Find registered WiRE uninstallers, then launch the selected Windows uninstaller.</p>
-            </div>
-            <button className={`${button} bg-blue-600 text-white hover:bg-blue-500`} disabled={!isDesktop || !!busyAction} onClick={() => void searchUninstallEntries()}>
-              {busyAction === 'search-uninstall' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <FileSearch className="h-4 w-4" />}
-              Find installed WiRE
-            </button>
-          </div>
-          {uninstallEntries.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              <select value={selectedUninstall} onChange={(event) => setSelectedUninstall(event.target.value)} className={`min-w-0 flex-1 rounded border px-2 py-2 text-xs ${input}`}>
-                {uninstallEntries.map((entry) => (
-                  <option key={entry.registryPath} value={entry.registryPath}>
-                    {entry.displayName}{entry.displayVersion ? ` (${entry.displayVersion})` : ''}
-                  </option>
-                ))}
-              </select>
-              <button className={`${button} bg-amber-600 text-white hover:bg-amber-500`} disabled={!isDesktop || !!busyAction} onClick={launchUninstall}>
-                <Unplug className="h-4 w-4" /> Open Windows uninstaller
-              </button>
-            </div>
-          ) : (
-            <p className={`text-sm ${muted}`}>No uninstall entries searched yet.</p>
-          )}
-        </section>
       </div>
       {toolbarConflict && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">

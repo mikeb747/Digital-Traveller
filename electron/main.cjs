@@ -372,6 +372,20 @@ ipcMain.handle('search-cleanup-folders', () =>
   handleCleanupIpc(() => pcCleanup.searchCleanupFolders(), 'Folder search completed.')
 );
 
+ipcMain.handle('search-archive-system-results', () =>
+  handleCleanupIpc(
+    () => pcCleanup.searchArchiveSystemResults(app.getPath('documents')),
+    'System results search completed.'
+  )
+);
+
+ipcMain.handle('archive-system-results', (event, paths) =>
+  handleCleanupIpc(
+    () => pcCleanup.archiveSystemResults(paths, app.getPath('documents')),
+    'Selected system results moved to Documents\\Archive.'
+  )
+);
+
 ipcMain.handle('delete-cleanup-folders', (event, paths) =>
   handleCleanupIpc(() => pcCleanup.deleteCleanupFolders(paths), 'Selected folders deleted.')
 );

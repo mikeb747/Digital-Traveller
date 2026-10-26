@@ -169,7 +169,7 @@ export const WorkflowTabs: React.FC<WorkflowTabsProps> = ({
                   ? 'bg-slate-900/60 text-slate-400 border-transparent hover:text-amber-200 hover:bg-slate-800/40'
                   : 'bg-slate-100 text-slate-600 border-transparent hover:text-amber-700 hover:bg-slate-200/60'
             }`}
-            title="Final PC cleanup"
+            title="Final PC Cleanup"
           >
             <Trash2 className="h-3.5 w-3.5" />
             <span className="tracking-tight whitespace-nowrap">PC Cleanup</span>

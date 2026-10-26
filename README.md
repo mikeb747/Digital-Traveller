@@ -56,9 +56,11 @@ In the **Calibration** stage, enter each laser wavelength and grating density co
 
 ## 🧹 Final PC Cleanup
 
-The Windows desktop app includes a **PC Cleanup** tab for end-of-test-PC cleanup. Searches and changes are separate actions: review the discovered folders or registry keys, select the targets, and confirm before deleting. Folder and registry deletion is permanent.
+The Windows desktop app includes a **PC Cleanup** tab for end-of-test-PC cleanup. **Uninstall WiRE** is at the top of the page. Searches and changes are separate actions: review the discovered folders or registry keys, select the targets, and confirm before deleting. Folder and registry deletion is permanent.
 
-The folder search checks the listed Renishaw `wdfshell`, `WiRE*`, and per-user AppData locations. Registry search is limited to the specified WiRE keys under `HKCU\Software\Renishaw` / `HKCU\Software\Renishaw plc` and the `HKLM\SOFTWARE\WOW6432Node\Renishaw` key on 64-bit Windows (or `HKLM\SOFTWARE\Renishaw` on 32-bit Windows). WiRE uninstall is launched from its registered Windows uninstall entry.
+**Archive System Results** searches the current user’s Documents folder for system-result folders named `<Serial Number>_<Customer Name>`. Select the folders to move them into `Documents\Archive`; existing folders with the same name in Archive are not overwritten.
+
+The WiRE folder search checks the listed Renishaw `wdfshell`, `WiRE*`, and per-user AppData locations. Registry search is limited to the specified WiRE keys under `HKCU\Software\Renishaw` / `HKCU\Software\Renishaw plc` and the `HKLM\SOFTWARE\WOW6432Node\Renishaw` key on 64-bit Windows (or `HKLM\SOFTWARE\Renishaw` on 32-bit Windows). WiRE uninstall is launched from its registered Windows uninstall entry.
 
 Toolbar restore requires a discovered `WiREInterface.exe` registry key and a WiRE installation folder found by the folder search. The app updates the version-specific procedure-file paths in the supplied toolbar data. If `Custom toolbar\0` already has a `data` value, choose to add the value to slot 1, overwrite slot 0, or cancel.
 

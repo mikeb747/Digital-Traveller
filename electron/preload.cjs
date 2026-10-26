@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld('desktopAPI', {
     overwrite
   }),
   searchCleanupFolders: () => ipcRenderer.invoke('search-cleanup-folders'),
+  searchArchiveSystemResults: () => ipcRenderer.invoke('search-archive-system-results'),
+  archiveSystemResults: (paths) => ipcRenderer.invoke('archive-system-results', paths),
   deleteCleanupFolders: (paths) => ipcRenderer.invoke('delete-cleanup-folders', paths),
   searchCleanupRegistry: () => ipcRenderer.invoke('search-cleanup-registry'),
   deleteCleanupRegistry: (paths) => ipcRenderer.invoke('delete-cleanup-registry', paths),

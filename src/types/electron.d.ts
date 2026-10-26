@@ -52,6 +52,8 @@ declare global {
       ) => Promise<SystemFolderResult>;
       selectNetworkDirectory: () => Promise<string | null>;
       searchCleanupFolders: () => Promise<CleanupResult<CleanupFolder[]>>;
+      searchArchiveSystemResults: () => Promise<CleanupResult<CleanupFolder[]>>;
+      archiveSystemResults: (paths: string[]) => Promise<CleanupResult<string[]>>;
       deleteCleanupFolders: (paths: string[]) => Promise<CleanupResult<string[]>>;
       searchCleanupRegistry: () => Promise<CleanupResult<CleanupRegistryKey[]>>;
       deleteCleanupRegistry: (paths: string[]) => Promise<CleanupResult<string[]>>;
