@@ -46,7 +46,8 @@ contextBridge.exposeInMainWorld('desktopAPI', {
       overwrite
     }),
   searchWireUninstallEntries: () => ipcRenderer.invoke('search-wire-uninstall-entries'),
-  launchWireUninstall: (registryPath) =>
+    killWireProcesses: () => ipcRenderer.invoke('kill-wire-processes'),
+    launchWireUninstall: (registryPath) =>
     ipcRenderer.invoke('launch-wire-uninstall', registryPath),
   fetchWireKey: (serialNumber) => ipcRenderer.invoke('fetch-wire-key', serialNumber)
 });

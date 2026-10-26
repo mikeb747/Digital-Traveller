@@ -56,7 +56,7 @@ In the **Calibration** stage, enter each laser wavelength and grating density co
 
 ## 🧹 Final PC Cleanup
 
-The Windows desktop app includes a **PC Cleanup** tab for end-of-test-PC cleanup. **Uninstall WiRE** is at the top of the page. Searches and changes are separate actions: review the discovered folders or registry keys, select the targets, and confirm before deleting. Folder and registry deletion is permanent.
+The Windows desktop app includes a **PC Cleanup** tab for end-of-test-PC cleanup. **Uninstall WiRE** is at the top of the page. **Kill WiRE** force-closes the listed WiRE subsystem processes before uninstall; it excludes `WiREDiagnosticService` and `WiREDiagnosticViewer` and asks for confirmation first. Searches and changes are separate actions: review the discovered folders or registry keys, select the targets, and confirm before deleting. Folder and registry deletion is permanent.
 
 **Archive System Results** searches the current user’s Documents folder for system-result folders named `<Serial Number>_<Customer Name>`. Select the folders to move them into `Documents\Archive`; existing folders with the same name in Archive are not overwritten.
 

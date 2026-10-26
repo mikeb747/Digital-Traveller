@@ -11,6 +11,28 @@ const REGISTRY_APP_NAMES = new Set([
   'WiRE'
 ].map((name) => name.toLowerCase()));
 const REGISTRY_VENDORS = ['Renishaw', 'Renishaw plc'];
+const KILL_WIRE_PROCESSES_SCRIPT = [
+  "$ErrorActionPreference = 'Stop'",
+  '$excludedNames = @("WiREDiagnosticService", "WiREDiagnosticViewer")',
+  "$runningProcesses = @(Get-Process -Name 'WiRE*' -ErrorAction SilentlyContinue | Where-Object { $excludedNames -notcontains $_.ProcessName })",
+  '$additionalNames = @(',
+  "  'FOVCalibration', 'VideoProbe', 'SystemInitialise2', 'RAXCalibration',",
+  "  'ResponseCalibration', 'ParticleDistributionAnalysis', 'PolarizationControl',",
+  "  'MicroscopeSwap', 'RamanWorkspace', 'MicroplateMapping', 'FilterCalibration',",
+  "  'Designer', 'CoordinateManager', 'AdvancedTemperatureControl', 'InLuxEngineerTool',",
+  "  'ArchiveToolUI', 'BatchConverter', 'Cap', 'FlashCamera', 'ImageAlignmentTool',",
+  "  'Monitor', 'ParticleStatistics', 'SurfaceExport', 'VirsaExtCalApp',",
+  "  'WDFExplorer', 'ml_app', 'TimeResolvedRaman'",
+  ')',
+  '$runningProcesses += @(Get-Process -Name $additionalNames -ErrorAction SilentlyContinue)',
+  '$runningProcesses = @($runningProcesses | Sort-Object -Property Id -Unique)',
+  '$killed = @()',
+  'foreach ($process in $runningProcesses) {',
+  '  Stop-Process -Id $process.Id -Force -ErrorAction Stop',
+  '  $killed += $process.ProcessName',
+  '}',
+  'ConvertTo-Json -InputObject @($killed) -Compress'
+].join('\n');
 const UNINSTALL_SCRIPT = [
   "$ErrorActionPreference = 'Stop'",
   "$roots = @(",
@@ -489,6 +511,20 @@ async function searchWireUninstallEntries() {
   return entries.filter((entry) => entry && /WiRE/i.test(entry.displayName || ''));
 }
 
+async function killWireProcesses() {
+  requireWindows();
+  const { stdout } = await execFileAsync('powershell.exe', [
+    '-NoProfile',
+    '-NonInteractive',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-Command',
+    KILL_WIRE_PROCESSES_SCRIPT
+  ], { windowsHide: true, encoding: 'utf8', maxBuffer: 1024 * 1024 });
+  const parsed = stdout.trim() ? JSON.parse(stdout) : [];
+  return Array.isArray(parsed) ? parsed : [parsed];
+}
+
 function parseWindowsArguments(value) {
   const args = [];
   const expression = /"((?:[^"\\]|\\.)*)"|(\S+)/g;
@@ -568,5 +604,6 @@ module.exports = {
   deleteCleanupRegistry,
   restoreCleanupToolbar,
   searchWireUninstallEntries,
+  killWireProcesses,
   launchWireUninstall
 };

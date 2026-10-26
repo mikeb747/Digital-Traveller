@@ -361,7 +361,11 @@ ipcMain.handle('create-laser-grating-files', async (event, request) => {
 async function handleCleanupIpc(operation, successMessage) {
   try {
     const data = await operation();
-    return { success: true, data, message: successMessage };
+    return {
+      success: true,
+      data,
+      message: typeof successMessage === 'function' ? successMessage(data) : successMessage
+    };
   } catch (err) {
     console.error('PC cleanup action failed:', err);
     return { success: false, error: err.message || 'The PC cleanup action failed.' };
@@ -415,6 +419,15 @@ ipcMain.handle('restore-cleanup-toolbar', async (event, request) => {
 
 ipcMain.handle('search-wire-uninstall-entries', () =>
   handleCleanupIpc(() => pcCleanup.searchWireUninstallEntries(), 'WiRE uninstall search completed.')
+);
+
+ipcMain.handle('kill-wire-processes', () =>
+  handleCleanupIpc(
+    () => pcCleanup.killWireProcesses(),
+    (processNames) => processNames.length > 0
+      ? `Killed: ${[...new Set(processNames)].join(', ')}`
+      : 'Nothing to kill.'
+  )
 );
 
 ipcMain.handle('launch-wire-uninstall', (event, registryPath) =>

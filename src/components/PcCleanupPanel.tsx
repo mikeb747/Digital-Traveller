@@ -241,6 +241,18 @@ export const PcCleanupPanel: React.FC<PcCleanupPanelProps> = ({ theme }) => {
     );
   };
 
+  const killWireProcesses = () => {
+    if (!window.confirm(
+      'Force close running WiRE subsystem processes? Any unsaved work in those programs will be lost.'
+    )) return;
+    void runAction(
+      'kill-wire-processes',
+      () => window.desktopAPI!.killWireProcesses(),
+      () => undefined,
+      'Nothing to kill.'
+    );
+  };
+
   const toggleSelected = (
     current: string[],
     value: string,
@@ -309,10 +321,16 @@ export const PcCleanupPanel: React.FC<PcCleanupPanelProps> = ({ theme }) => {
               <h2 className={`flex items-center gap-2 font-semibold ${text}`}><Unplug className="h-4 w-4" /> Uninstall WiRE</h2>
               <p className={`mt-1 text-xs ${muted}`}>Find registered WiRE uninstallers, then launch the selected Windows uninstaller.</p>
             </div>
-            <button className={`${button} bg-blue-600 text-white hover:bg-blue-500`} disabled={!isDesktop || !!busyAction} onClick={() => void searchUninstallEntries()}>
-              {busyAction === 'search-uninstall' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <FileSearch className="h-4 w-4" />}
-              Find installed WiRE
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button className={`${button} bg-red-700 text-white hover:bg-red-600`} disabled={!isDesktop || !!busyAction} onClick={killWireProcesses}>
+                {busyAction === 'kill-wire-processes' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Unplug className="h-4 w-4" />}
+                Kill WiRE
+              </button>
+              <button className={`${button} bg-blue-600 text-white hover:bg-blue-500`} disabled={!isDesktop || !!busyAction} onClick={() => void searchUninstallEntries()}>
+                {busyAction === 'search-uninstall' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <FileSearch className="h-4 w-4" />}
+                Find installed WiRE
+              </button>
+            </div>
           </div>
           {uninstallEntries.length > 0 ? (
             <div className="flex flex-wrap gap-2">

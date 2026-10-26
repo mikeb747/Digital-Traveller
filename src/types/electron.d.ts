@@ -64,6 +64,7 @@ declare global {
         overwrite: boolean
       ) => Promise<CleanupToolbarResult>;
       searchWireUninstallEntries: () => Promise<CleanupResult<WireUninstallEntry[]>>;
+      killWireProcesses: () => Promise<CleanupResult<string[]>>;
       launchWireUninstall: (registryPath: string) => Promise<CleanupResult>;
     };
   }
