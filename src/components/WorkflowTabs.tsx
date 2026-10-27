@@ -79,12 +79,12 @@ export const WorkflowTabs: React.FC<WorkflowTabsProps> = ({
 
   return (
     <div
-      className={`border-b px-3 pt-1.5 flex items-center justify-between gap-3 overflow-x-auto flex-shrink-0 transition-colors ${
+      className={`relative z-30 border-b px-3 pt-1.5 flex items-center justify-between gap-3 flex-shrink-0 transition-colors ${
         isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'
       }`}
     >
       {/* Left: Stage Workflow Tabs */}
-      <div className="flex items-center space-x-1.5 overflow-x-auto flex-shrink-0">
+      <div className="flex items-center space-x-1.5 flex-shrink-0">
         {allStageNames.map((stageName) => {
           const isSelected = currentStage === stageName;
           const stats = WorkflowService.getStageStats(traveller, stageName);
@@ -233,77 +233,70 @@ export const WorkflowTabs: React.FC<WorkflowTabsProps> = ({
         )}
       </div>
 
-      {/* Right: Snug metadata summary pills (S/N, Customer, Job, Part) & TechSelector */}
-      <div className="flex items-center space-x-1 pb-1.5 flex-shrink-0 select-none">
-        {/* System Serial Number Summary Pill */}
+      {/* Right: Unified single details box (all 4 details inside 1 white box) & TechSelector */}
+      <div className="flex items-center space-x-2 pb-1.5 flex-shrink-0 select-none">
+        {/* Unified 4-in-1 System Details Box */}
         <div
           onClick={onOpenBarcodeModal}
-          className={`flex items-center rounded border px-2.5 py-1 text-xs transition-colors cursor-pointer ${
-            !traveller.serialNumber
-              ? isDark
-                ? 'bg-amber-950/20 border-amber-800/60 hover:border-amber-700'
-                : 'bg-amber-50 border-amber-300 hover:border-amber-400'
-              : isDark
-              ? 'bg-slate-950/80 border-slate-800 hover:border-slate-700'
-              : 'bg-white border-slate-300 hover:border-slate-400'
+          className={`flex items-center rounded border text-xs cursor-pointer select-none transition-colors shadow-2xs divide-x ${
+            isDark
+              ? 'bg-slate-950/90 border-slate-800 divide-slate-800 hover:border-slate-700'
+              : 'bg-white border-slate-300 divide-slate-200 hover:border-slate-400'
           }`}
-          title="System serial number"
+          title="Click to view/edit unit numbers & details"
         >
-          <span className="text-slate-400 text-[11px] mr-1.5 font-medium">S/N:</span>
-          {traveller.serialNumber ? (
-            <span className="font-mono font-bold text-blue-500">{traveller.serialNumber}</span>
-          ) : (
-            <span className="font-mono text-[11px] text-amber-500/90 italic">Not recorded</span>
-          )}
+          {/* Serial Number */}
+          <div className="flex items-center px-2.5 py-1">
+            <span className="text-slate-400 text-[11px] mr-1.5 font-medium">S/N:</span>
+            {traveller.serialNumber ? (
+              <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{traveller.serialNumber}</span>
+            ) : (
+              <span className="font-mono text-[11px] text-amber-600 dark:text-amber-500/90 italic">Not recorded</span>
+            )}
+          </div>
+
+          {/* Customer Name */}
+          <div className="flex items-center px-2.5 py-1">
+            <User className="w-3.5 h-3.5 text-blue-500 mr-1.5 flex-shrink-0" />
+            <span
+              className={`text-[11px] max-w-[130px] truncate ${
+                traveller.customerName
+                  ? isDark ? 'text-slate-200 font-medium' : 'text-slate-800 font-medium'
+                  : 'text-slate-400 italic'
+              }`}
+            >
+              {traveller.customerName || 'No customer'}
+            </span>
+          </div>
+
+          {/* Job Number */}
+          <div className="flex items-center px-2.5 py-1">
+            <Briefcase className="w-3.5 h-3.5 text-blue-500 mr-1.5 flex-shrink-0" />
+            <span
+              className={`font-mono text-[11px] max-w-[110px] truncate ${
+                traveller.jobNumber
+                  ? isDark ? 'text-slate-200 font-medium' : 'text-slate-800 font-medium'
+                  : 'text-slate-400 italic'
+              }`}
+            >
+              {traveller.jobNumber || 'No job #'}
+            </span>
+          </div>
+
+          {/* Part Number */}
+          <div className="flex items-center px-2.5 py-1">
+            <Tag className="w-3.5 h-3.5 text-blue-500 mr-1.5 flex-shrink-0" />
+            <span
+              className={`font-mono text-[11px] max-w-[120px] truncate ${
+                traveller.partNumber
+                  ? isDark ? 'text-slate-200 font-medium' : 'text-slate-800 font-medium'
+                  : 'text-slate-400 italic'
+              }`}
+            >
+              {traveller.partNumber || 'No part #'}
+            </span>
+          </div>
         </div>
-
-        {/* Customer Name (if defined) */}
-        {traveller.customerName && (
-          <div
-            onClick={onOpenBarcodeModal}
-            className={`flex items-center rounded border px-2.5 py-1 text-xs cursor-pointer transition-colors ${
-              isDark
-                ? 'bg-slate-950/80 border-slate-800 text-slate-300 hover:border-slate-700'
-                : 'bg-white border-slate-300 text-slate-700 hover:border-slate-400'
-            }`}
-            title={`Customer: ${traveller.customerName}`}
-          >
-            <User className="w-3 h-3 text-blue-500 mr-1.5 flex-shrink-0" />
-            <span className="text-[11px] max-w-[130px] truncate">{traveller.customerName}</span>
-          </div>
-        )}
-
-        {/* Job Number (if defined) */}
-        {traveller.jobNumber && (
-          <div
-            onClick={onOpenBarcodeModal}
-            className={`flex items-center rounded border px-2.5 py-1 text-xs cursor-pointer transition-colors ${
-              isDark
-                ? 'bg-slate-950/80 border-slate-800 text-slate-300 hover:border-slate-700'
-                : 'bg-white border-slate-300 text-slate-700 hover:border-slate-400'
-            }`}
-            title={`Job Number: ${traveller.jobNumber}`}
-          >
-            <Briefcase className="w-3 h-3 text-blue-500 mr-1.5 flex-shrink-0" />
-            <span className="font-mono text-[11px]">{traveller.jobNumber}</span>
-          </div>
-        )}
-
-        {/* Part Number (if defined) */}
-        {traveller.partNumber && (
-          <div
-            onClick={onOpenBarcodeModal}
-            className={`flex items-center rounded border px-2.5 py-1 text-xs cursor-pointer transition-colors ${
-              isDark
-                ? 'bg-slate-950/80 border-slate-800 text-slate-300 hover:border-slate-700'
-                : 'bg-white border-slate-300 text-slate-700 hover:border-slate-400'
-            }`}
-            title={`Part Number: ${traveller.partNumber}`}
-          >
-            <Tag className="w-3 h-3 text-blue-500 mr-1.5 flex-shrink-0" />
-            <span className="font-mono text-[11px]">{traveller.partNumber}</span>
-          </div>
-        )}
 
         {/* Tech Selector Dropdown */}
         {onChangeOperator && (

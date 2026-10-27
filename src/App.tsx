@@ -280,26 +280,40 @@ export const App: React.FC = () => {
     jobNumber: string;
     partNumber: string;
   }) => {
-    setTraveller((prev) => ({
-      ...prev,
-      serialNumber: details.serialNumber,
-      customerName: details.customerName,
-      jobNumber: details.jobNumber,
-      partNumber: details.partNumber,
-      updatedAt: new Date().toISOString(),
-      auditLog: [
-        {
-          timestamp: new Date().toISOString(),
-          action: `Unit details updated: S/N ${details.serialNumber || 'Blank'}${
-            details.customerName ? ` | Customer: ${details.customerName}` : ''
-          }${details.jobNumber ? ` | Job: ${details.jobNumber}` : ''}${
-            details.partNumber ? ` | Part: ${details.partNumber}` : ''
-          }`,
-          user: prev.operatorName
-        },
-        ...prev.auditLog
-      ]
-    }));
+    setTraveller((prev) => {
+      const s = details.serialNumber.trim();
+      const c = details.customerName.trim();
+      const j = details.jobNumber.trim();
+      const p = details.partNumber.trim();
+
+      const prevS = (prev.serialNumber || '').trim();
+      const prevC = (prev.customerName || '').trim();
+      const prevJ = (prev.jobNumber || '').trim();
+      const prevP = (prev.partNumber || '').trim();
+
+      if (s === prevS && c === prevC && j === prevJ && p === prevP) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        serialNumber: s,
+        customerName: c,
+        jobNumber: j,
+        partNumber: p,
+        updatedAt: new Date().toISOString(),
+        auditLog: [
+          {
+            timestamp: new Date().toISOString(),
+            action: `Unit details updated: S/N ${s || 'Blank'}${
+              c ? ` | Customer: ${c}` : ''
+            }${j ? ` | Job: ${j}` : ''}${p ? ` | Part: ${p}` : ''}`,
+            user: prev.operatorName
+          },
+          ...prev.auditLog
+        ]
+      };
+    });
     setNotification('Hardware & unit details updated');
   };
 

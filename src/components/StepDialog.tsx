@@ -103,23 +103,33 @@ export const StepDialog: React.FC<StepDialogProps> = ({
     setLocalPart(partNumber || '');
   }, [serialNumber, customerName, jobNumber, partNumber, isOpen]);
 
-  const handleDetailChange = (field: 'serial' | 'customer' | 'job' | 'part', value: string) => {
-    const s = field === 'serial' ? value : localSerial;
-    const c = field === 'customer' ? value : localCustomer;
-    const j = field === 'job' ? value : localJob;
-    const p = field === 'part' ? value : localPart;
+  const syncDetailsIfChanged = () => {
+    if (!isRecordSystemDetailsStep) return;
+    const s = localSerial.trim();
+    const c = localCustomer.trim();
+    const j = localJob.trim();
+    const p = localPart.trim();
 
+    const prevS = (serialNumber || '').trim();
+    const prevC = (customerName || '').trim();
+    const prevJ = (jobNumber || '').trim();
+    const prevP = (partNumber || '').trim();
+
+    if (s !== prevS || c !== prevC || j !== prevJ || p !== prevP) {
+      onUpdateDetails?.({
+        serialNumber: s,
+        customerName: c,
+        jobNumber: j,
+        partNumber: p
+      });
+    }
+  };
+
+  const handleDetailChange = (field: 'serial' | 'customer' | 'job' | 'part', value: string) => {
     if (field === 'serial') setLocalSerial(value);
     if (field === 'customer') setLocalCustomer(value);
     if (field === 'job') setLocalJob(value);
     if (field === 'part') setLocalPart(value);
-
-    onUpdateDetails?.({
-      serialNumber: s,
-      customerName: c,
-      jobNumber: j,
-      partNumber: p
-    });
   };
 
   // Press Escape on keyboard to close without completing
@@ -134,7 +144,7 @@ export const StepDialog: React.FC<StepDialogProps> = ({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [notes, step, signoffTechnician]);
+  }, [notes, step, signoffTechnician, localSerial, localCustomer, localJob, localPart]);
 
   const handleMarkComplete = async () => {
     if (isRecordSystemDetailsStep) {
@@ -144,12 +154,7 @@ export const StepDialog: React.FC<StepDialogProps> = ({
         );
         return;
       }
-      onUpdateDetails?.({
-        serialNumber: localSerial.trim(),
-        customerName: localCustomer.trim(),
-        jobNumber: localJob.trim(),
-        partNumber: localPart.trim()
-      });
+      syncDetailsIfChanged();
     }
     if (isLaserSelectionStep) {
       const validationError = validateLaserGratingCombinations(laserGratingCombinations);
@@ -186,6 +191,7 @@ export const StepDialog: React.FC<StepDialogProps> = ({
   };
 
   const handleMarkInProgress = () => {
+    syncDetailsIfChanged();
     onUpdateStatus(step.id, 'In Progress', notes, signoffTechnician);
     onClose();
   };
@@ -196,6 +202,7 @@ export const StepDialog: React.FC<StepDialogProps> = ({
   };
 
   const handleCloseWithoutCompleting = () => {
+    syncDetailsIfChanged();
     // Preserve any notes changes without forcing completion
     if (notes !== step.notes) {
       onUpdateStatus(step.id, step.status, notes);
