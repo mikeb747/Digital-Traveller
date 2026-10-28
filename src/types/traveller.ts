@@ -1,6 +1,6 @@
 export type SystemType = string;
 
-export type DefaultWorkflowStage = 'Setup' | 'Calibration' | 'Final Test & Release';
+export type DefaultWorkflowStage = 'Set Up' | 'Setup' | 'Calibration' | 'Final Test & Release';
 export type WorkflowStage = string;
 
 export type StepStatus = 'Not Started' | 'In Progress' | 'Complete';

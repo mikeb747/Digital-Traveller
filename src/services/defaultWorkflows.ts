@@ -2,7 +2,12 @@ import { SystemProfile, SystemType } from '../types/traveller';
 import {
   LASER_GRATING_FILES_SAVE_INSTRUCTION,
   LASER_GRATING_FILES_STEP_NAME,
-  LASER_GRATING_SELECTION_STEP_NAME
+  LASER_GRATING_SELECTION_STEP_NAME,
+  PAT_TEST_STEP_NAME,
+  PRE_SYSTEM_TEST_STEP_NAME,
+  SYSTEM_UNBOXING_STEP_NAME,
+  PAT_TEST_STEP_INSTRUCTIONS,
+  PRE_SYSTEM_TEST_STEP_INSTRUCTIONS
 } from './laserGratingWorkflow';
 
 export const SYSTEM_PROFILES: Record<SystemType, SystemProfile> = {
@@ -13,14 +18,44 @@ export const SYSTEM_PROFILES: Record<SystemType, SystemProfile> = {
     description: 'Precision automated Raman microscope with multi-laser kinematic grating carousels.',
     laserOptions: ['532 nm (DPSS)', '785 nm (Diode)', '633 nm (HeNe)', '325 nm (HeCd)'],
     defaultSteps: [
-      // SETUP
+      // SET UP
       {
-        name: 'Optical Bench Unboxing & Leveling',
-        stage: 'Setup',
+        name: PAT_TEST_STEP_NAME,
+        stage: 'Set Up',
+        instructions: [...PAT_TEST_STEP_INSTRUCTIONS],
+        checklist: [
+          { id: 'pat1', label: 'Visual inspection of mains lead and plug passed', done: false },
+          { id: 'pat2', label: 'Earth continuity test passed (< 0.1 Ω)', done: false },
+          { id: 'pat3', label: 'Insulation resistance test passed (> 2.0 MΩ at 500V DC)', done: false },
+          { id: 'pat4', label: 'PAT safety pass label affixed to chassis and power supply', done: false }
+        ],
+        measuredData: [
+          { parameter: 'Earth Continuity', value: '', unit: 'Ω', tolerance: '< 0.10 Ω' },
+          { parameter: 'Insulation Resistance', value: '', unit: 'MΩ', tolerance: '> 2.0 MΩ' }
+        ]
+      },
+      {
+        name: PRE_SYSTEM_TEST_STEP_NAME,
+        stage: 'Set Up',
+        instructions: [...PRE_SYSTEM_TEST_STEP_INSTRUCTIONS],
+        checklist: [
+          { id: 'pst1', label: 'Internal DC power supply voltages verified', done: false },
+          { id: 'pst2', label: 'Laser safety interlock loops and microswitches verified', done: false },
+          { id: 'pst3', label: 'Host PC communication and USB/Ethernet links established', done: false }
+        ],
+        measuredData: [
+          { parameter: 'DC 24V Rail', value: '', unit: 'V', tolerance: '24.0 ± 0.5 V' },
+          { parameter: 'DC 5V Rail', value: '', unit: 'V', tolerance: '5.0 ± 0.2 V' }
+        ]
+      },
+      {
+        name: SYSTEM_UNBOXING_STEP_NAME,
+        stage: 'Set Up',
         instructions: [
-          'Inspect the cast-aluminum optical baseplate for transit damage.',
+          'Inspect the cast-aluminum optical baseplate and PC for transit damage.',
           'Position on pneumatic vibration isolation table and level to ±0.2°.',
-          'Verify mains power conditioning (230V/115V ±5%) and ground bond resistance < 0.1 Ω.'
+          'Verify mains power conditioning (230V/115V ±5%) and ground bond resistance < 0.1 Ω.',
+          'Complete all peripheral cabling, monitor setup, and host PC connection.'
         ],
         checklist: [
           { id: 'c1', label: 'Baseplate kinematic pads verified', done: false },
@@ -29,34 +64,32 @@ export const SYSTEM_PROFILES: Record<SystemType, SystemProfile> = {
         ]
       },
       {
-        name: 'Laser Beam Alignment & Safety Interlocks',
-        stage: 'Setup',
+        name: 'Rayleigh Cut-off Filter Calibration',
+        stage: 'Set Up',
         instructions: [
-          'Mount primary 532 nm excitation laser and secure beam steering optics.',
-          'Align beam onto entrance pinhole with target quadrant detector.',
-          'Test emergency beam shutter interlock and enclosure microswitches.'
+          'Tune edge filter angle to achieve low wavenumber cut-off.',
+          'Verify rejection optical density > OD 6 at excitation wavelength.',
+          'Confirm transmission passband > 85% above 100 cm⁻¹.'
         ],
         checklist: [
-          { id: 'c4', label: 'Interlock circuit trip test passed (<50ms)', done: false },
-          { id: 'c5', label: 'Beam circularity > 92% at microscope pupil', done: false }
-        ],
-        measuredData: [
-          { parameter: 'Laser Power at sample', value: '', unit: 'mW', tolerance: '45 - 55 mW' },
-          { parameter: 'Beam Divergence', value: '', unit: 'mrad', tolerance: '< 1.2 mrad' }
+          { id: 'c10', label: 'Low frequency cut-off verified below 100 cm⁻¹', done: false },
+          { id: 'c11', label: 'Rayleigh peak bleed suppressed below 50 counts', done: false }
         ]
       },
       {
-        name: 'Grating Turret & Slit Alignment',
-        stage: 'Setup',
+        name: 'CCD Detector Cooling & Dark Count Test',
+        stage: 'Set Up',
         instructions: [
-          'Mount 1800 l/mm and 2400 l/mm holographic gratings.',
-          'Initialize stepper motor home positions and verify zero-order retroreflection.'
+          'Cool Peltier CCD to operational setpoint (-70°C).',
+          'Measure dark noise over 60s integration with shutter closed.',
+          'Verify cosmetic defect map has no hot column defects.'
         ],
-        checklist: [
-          { id: 'c6', label: 'Grating 1800 l/mm repeatability < 0.05 cm⁻¹', done: false },
-          { id: 'c7', label: 'Confocal pinhole motorized centering calibrated', done: false }
+        measuredData: [
+          { parameter: 'Detector Temp', value: '', unit: '°C', tolerance: '-70.0 ± 0.5' },
+          { parameter: 'RMS Read Noise', value: '', unit: 'e⁻', tolerance: '< 4.5 e⁻' }
         ]
       },
+
       // CALIBRATION
       {
         name: LASER_GRATING_SELECTION_STEP_NAME,
@@ -93,29 +126,32 @@ export const SYSTEM_PROFILES: Record<SystemType, SystemProfile> = {
         ]
       },
       {
-        name: 'Rayleigh Cut-off Filter Calibration',
+        name: 'Laser Beam Alignment & Safety Interlocks',
         stage: 'Calibration',
         instructions: [
-          'Tune edge filter angle to achieve low wavenumber cut-off.',
-          'Verify rejection optical density > OD 6 at excitation wavelength.',
-          'Confirm transmission passband > 85% above 100 cm⁻¹.'
+          'Mount primary 532 nm excitation laser and secure beam steering optics.',
+          'Align beam onto entrance pinhole with target quadrant detector.',
+          'Test emergency beam shutter interlock and enclosure microswitches.'
         ],
         checklist: [
-          { id: 'c10', label: 'Low frequency cut-off verified below 100 cm⁻¹', done: false },
-          { id: 'c11', label: 'Rayleigh peak bleed suppressed below 50 counts', done: false }
+          { id: 'c4', label: 'Interlock circuit trip test passed (<50ms)', done: false },
+          { id: 'c5', label: 'Beam circularity > 92% at microscope pupil', done: false }
+        ],
+        measuredData: [
+          { parameter: 'Laser Power at sample', value: '', unit: 'mW', tolerance: '45 - 55 mW' },
+          { parameter: 'Beam Divergence', value: '', unit: 'mrad', tolerance: '< 1.2 mrad' }
         ]
       },
       {
-        name: 'CCD Detector Cooling & Dark Count Test',
+        name: 'Grating Turret & Slit Alignment',
         stage: 'Calibration',
         instructions: [
-          'Cool Peltier CCD to operational setpoint (-70°C).',
-          'Measure dark noise over 60s integration with shutter closed.',
-          'Verify cosmetic defect map has no hot column defects.'
+          'Mount 1800 l/mm and 2400 l/mm holographic gratings.',
+          'Initialize stepper motor home positions and verify zero-order retroreflection.'
         ],
-        measuredData: [
-          { parameter: 'Detector Temp', value: '', unit: '°C', tolerance: '-70.0 ± 0.5' },
-          { parameter: 'RMS Read Noise', value: '', unit: 'e⁻', tolerance: '< 4.5 e⁻' }
+        checklist: [
+          { id: 'c6', label: 'Grating 1800 l/mm repeatability < 0.05 cm⁻¹', done: false },
+          { id: 'c7', label: 'Confocal pinhole motorized centering calibrated', done: false }
         ]
       },
 
@@ -167,10 +203,10 @@ export const SYSTEM_PROFILES: Record<SystemType, SystemProfile> = {
     description: 'Ruggedized fiber-based Raman spectrometer for remote probe analysis outside the laboratory.',
     laserOptions: ['785 nm Laser Diode', '532 nm Fiber Source'],
     defaultSteps: [
-      // SETUP
+      // SET UP
       {
         name: 'Chassis & Fiber Conduit Inspection',
-        stage: 'Setup',
+        stage: 'Set Up',
         instructions: [
           'Inspect rugged transport case and armored fiber patch cords.',
           'Test fiber optic interlock loop continuity.',
@@ -183,7 +219,7 @@ export const SYSTEM_PROFILES: Record<SystemType, SystemProfile> = {
       },
       {
         name: 'Fiber Probe Head Coupling & Shutter Test',
-        stage: 'Setup',
+        stage: 'Set Up',
         instructions: [
           'Attach remote objective lens head to SMA905 excitation/collection fiber.',
           'Verify integrated LED targeting illuminator and auto-focus mechanism.',
@@ -278,10 +314,10 @@ export const SYSTEM_PROFILES: Record<SystemType, SystemProfile> = {
     description: 'Specialized hybrid SEM Raman spectrometer for vacuum chamber retrofits and correlative imaging.',
     laserOptions: ['532 nm (High Stability)', '785 nm (Low Fluorescence)'],
     defaultSteps: [
-      // SETUP
+      // SET UP
       {
         name: 'SEM Vacuum Flange & Feedthrough Verification',
-        stage: 'Setup',
+        stage: 'Set Up',
         instructions: [
           'Clean CF flange mating surfaces and fit Viton O-ring / copper gasket.',
           'Mount optical conduit feedthrough assembly to SEM chamber port.',
@@ -294,7 +330,7 @@ export const SYSTEM_PROFILES: Record<SystemType, SystemProfile> = {
       },
       {
         name: 'In-Chamber Objective Retractor Mechanism',
-        stage: 'Setup',
+        stage: 'Set Up',
         instructions: [
           'Mount motorized retractable objective arm in SEM chamber.',
           'Test pneumatic/stepper retraction travel between SEM clear and Raman park position.',

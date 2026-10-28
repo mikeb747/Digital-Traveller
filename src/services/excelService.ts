@@ -28,7 +28,7 @@ export class ExcelService {
       ['Active Operator', record.operatorName],
       ['Created Date', record.createdAt],
       ['Last Updated', record.updatedAt],
-      ['Total Stages', (record.stages || ['Setup', 'Calibration', 'Final Test & Release']).length],
+      ['Total Stages', (record.stages || ['Set Up', 'Calibration', 'Final Test & Release']).length],
       ['Total Steps', record.steps.length],
       ['Steps Completed', record.steps.filter((s) => s.status === 'Complete').length],
       [

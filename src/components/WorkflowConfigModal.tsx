@@ -18,10 +18,12 @@ export const WorkflowConfigModal: React.FC<WorkflowConfigModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const defaultStages = ['Setup', 'Calibration', 'Final Test & Release'];
-  const availableStages = traveller.stages && traveller.stages.length > 0 ? traveller.stages : defaultStages;
+  const defaultStages = ['Set Up', 'Calibration', 'Final Test & Release'];
+  const availableStages = traveller.stages && traveller.stages.length > 0
+    ? traveller.stages.map((s) => (s === 'Setup' ? 'Set Up' : s))
+    : defaultStages;
 
-  const [targetStage, setTargetStage] = useState<WorkflowStage>(availableStages[0] || 'Setup');
+  const [targetStage, setTargetStage] = useState<WorkflowStage>(availableStages[0] || 'Set Up');
   const [stepName, setStepName] = useState('');
   const [instructions, setInstructions] = useState('');
   const [feedback, setFeedback] = useState<string | null>(null);

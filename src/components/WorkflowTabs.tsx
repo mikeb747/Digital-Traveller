@@ -36,9 +36,9 @@ export const WorkflowTabs: React.FC<WorkflowTabsProps> = ({
   const isDark = theme === 'dark';
 
   // Compute unique stages from default, traveller.stages, and traveller.steps
-  const defaultStages = ['Setup', 'Calibration', 'Final Test & Release'];
-  const customStages = traveller.stages || [];
-  const stepStages = Array.from(new Set(traveller.steps.map((s) => s.stage)));
+  const defaultStages = ['Set Up', 'Calibration', 'Final Test & Release'];
+  const customStages = (traveller.stages || []).map((s) => (s === 'Setup' ? 'Set Up' : s));
+  const stepStages = Array.from(new Set(traveller.steps.map((s) => (s.stage === 'Setup' ? 'Set Up' : s.stage))));
 
   const allStageNames = Array.from(
     new Set([...defaultStages, ...customStages, ...stepStages])
@@ -52,6 +52,7 @@ export const WorkflowTabs: React.FC<WorkflowTabsProps> = ({
 
   const getStageIcon = (stageName: string) => {
     switch (stageName) {
+      case 'Set Up':
       case 'Setup':
         return Wrench;
       case 'Calibration':

@@ -48,7 +48,7 @@ export const App: React.FC = () => {
   });
 
   const [activeStage, setActiveStage] = useState<WorkflowStage>(() => {
-    return traveller.activeStage || 'Setup';
+    return traveller.activeStage || 'Set Up';
   });
 
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
@@ -163,11 +163,11 @@ export const App: React.FC = () => {
     // Persist to template file store
     WorkflowTemplateService.addTabToTemplate(traveller.system, tabName);
 
-    const existingStages = traveller.stages || ['Setup', 'Calibration', 'Final Test & Release'];
+    const existingStages = traveller.stages || ['Set Up', 'Calibration', 'Final Test & Release'];
     if (!existingStages.includes(tabName)) {
       setTraveller((prev) => ({
         ...prev,
-        stages: [...(prev.stages || ['Setup', 'Calibration', 'Final Test & Release']), tabName],
+        stages: [...(prev.stages || ['Set Up', 'Calibration', 'Final Test & Release']), tabName],
         activeStage: tabName,
         updatedAt: new Date().toISOString(),
         auditLog: [
@@ -335,7 +335,7 @@ export const App: React.FC = () => {
     StorageService.saveTraveller(newRec);
     setTraveller(newRec);
     // Select Tab 1 (first stage) and Step 1 (first step in that stage)
-    const firstStage = (newRec.stages && newRec.stages[0]) || 'Setup';
+    const firstStage = (newRec.stages && newRec.stages[0]) || 'Set Up';
     setActiveStage(firstStage);
     const firstStep = newRec.steps.find((s) => s.stage === firstStage);
     setSelectedStepId(firstStep ? firstStep.id : null);
@@ -369,7 +369,7 @@ export const App: React.FC = () => {
         const content = event.target?.result as string;
         const importedRecord = StorageService.importFromJsonText(content);
         setTraveller(importedRecord);
-        setActiveStage(importedRecord.activeStage || 'Setup');
+        setActiveStage(importedRecord.activeStage === 'Setup' ? 'Set Up' : (importedRecord.activeStage || 'Set Up'));
         setSelectedStepId(null);
         setNotification(`Opened traveller: ${importedRecord.system} (${importedRecord.serialNumber || 'Unassigned'})`);
       } catch (err: any) {
@@ -381,85 +381,234 @@ export const App: React.FC = () => {
 
   // Handle applied workflow template from Admin Settings (Load Workflows)
   const handleApplyWorkflows = (newStages: string[], newSteps: WorkflowStep[]) => {
-    const setupStep = newSteps.find(
-      (step) => step.name === SYSTEM_UNBOXING_STEP_NAME
-    ) || newSteps.find((step) =>
-      step.stage === 'Setup' &&
-      step.name !== RECORD_SYSTEM_DETAILS_STEP_NAME &&
-      step.name !== SYSTEM_FOLDERS_STEP_NAME
-    );
-    const unboxingStep: WorkflowStep = setupStep
-      ? {
-          ...setupStep,
-          name: SYSTEM_UNBOXING_STEP_NAME,
-          stage: 'Setup',
-          instructions: [
-            ...setupStep.instructions,
-            ...(!setupStep.instructions.some((instruction) =>
-              SYSTEM_UNBOXING_STEP_INSTRUCTIONS.includes(instruction)
-            ) ? SYSTEM_UNBOXING_STEP_INSTRUCTIONS : [])
-          ]
+    const isinVia = traveller.system === 'inVia';
+
+    // Normalize incoming stages
+    const normalizedStages = Array.from(new Set(
+      newStages.map((st) => (st === 'Setup' ? 'Set Up' : st))
+    ));
+    if (!normalizedStages.includes('Set Up')) normalizedStages.unshift('Set Up');
+    if (!normalizedStages.includes('Calibration')) normalizedStages.push('Calibration');
+    if (!normalizedStages.includes('Final Test & Release')) normalizedStages.push('Final Test & Release');
+
+    let normalizedSteps: WorkflowStep[] = [];
+
+    if (isinVia) {
+      const patStep = newSteps.find((s) => s.name === 'PAT Test') || {
+        id: `step-${traveller.system}-pat-${Date.now().toString(36)}`,
+        name: 'PAT Test',
+        stage: 'Set Up',
+        status: 'Not Started',
+        completedAt: null,
+        startedAt: null,
+        technician: '',
+        notes: '',
+        instructions: [
+          'Perform electrical safety inspection and Portable Appliance Testing (PAT).',
+          'Verify earth continuity resistance (< 0.1 Ω).',
+          'Measure insulation resistance (> 2 MΩ at 500V DC).',
+          'Confirm touch leakage and substitute leakage current within safe limits (< 0.5 mA).',
+          'Affix passed PAT test label with test date, retest period, and tester initials.'
+        ],
+        checklist: [
+          { id: 'pat1', label: 'Visual inspection of mains lead and plug passed', done: false },
+          { id: 'pat2', label: 'Earth continuity test passed (< 0.1 Ω)', done: false },
+          { id: 'pat3', label: 'Insulation resistance test passed (> 2.0 MΩ at 500V DC)', done: false },
+          { id: 'pat4', label: 'PAT safety pass label affixed to chassis and power supply', done: false }
+        ],
+        measuredData: [
+          { parameter: 'Earth Continuity', value: '', unit: 'Ω', tolerance: '< 0.10 Ω' },
+          { parameter: 'Insulation Resistance', value: '', unit: 'MΩ', tolerance: '> 2.0 MΩ' }
+        ]
+      };
+
+      const preStep = newSteps.find((s) => s.name === 'Pre System Test') || {
+        id: `step-${traveller.system}-pre-${Date.now().toString(36)}`,
+        name: 'Pre System Test',
+        stage: 'Set Up',
+        status: 'Not Started',
+        completedAt: null,
+        startedAt: null,
+        technician: '',
+        notes: '',
+        instructions: [
+          'Perform initial pre-system inspection and hardware check.',
+          'Verify all internal DC power supply rails (24V, 12V, 5V) before main system boot.',
+          'Verify communication interfaces (USB / Ethernet) with host PC.',
+          'Confirm emergency stop circuit and laser safety interlock operation.'
+        ],
+        checklist: [
+          { id: 'pst1', label: 'Internal DC power supply voltages verified', done: false },
+          { id: 'pst2', label: 'Laser safety interlock loops and microswitches verified', done: false },
+          { id: 'pst3', label: 'Host PC communication and USB/Ethernet links established', done: false }
+        ],
+        measuredData: [
+          { parameter: 'DC 24V Rail', value: '', unit: 'V', tolerance: '24.0 ± 0.5 V' },
+          { parameter: 'DC 5V Rail', value: '', unit: 'V', tolerance: '5.0 ± 0.2 V' }
+        ]
+      };
+
+      const setupStep = newSteps.find(
+        (s) => s.name === SYSTEM_UNBOXING_STEP_NAME || s.name === 'System & PC Unboxing & Set Up'
+      ) || {
+        id: `step-${traveller.system}-system-setup-${Date.now().toString(36)}`,
+        name: SYSTEM_UNBOXING_STEP_NAME,
+        stage: 'Set Up',
+        status: 'Not Started',
+        completedAt: null,
+        startedAt: null,
+        technician: '',
+        notes: '',
+        instructions: [...SYSTEM_UNBOXING_STEP_INSTRUCTIONS],
+        checklist: [],
+        measuredData: []
+      };
+
+      const detailsStep = newSteps.find((s) => s.name === RECORD_SYSTEM_DETAILS_STEP_NAME) || {
+        id: `step-${traveller.system}-system-details-${Date.now().toString(36)}`,
+        name: RECORD_SYSTEM_DETAILS_STEP_NAME,
+        stage: 'Set Up',
+        status: 'Not Started',
+        completedAt: null,
+        startedAt: null,
+        technician: '',
+        notes: '',
+        instructions: [...RECORD_SYSTEM_DETAILS_STEP_INSTRUCTIONS],
+        checklist: [],
+        measuredData: []
+      };
+
+      const folderStep = newSteps.find((s) => s.name === SYSTEM_FOLDERS_STEP_NAME) || {
+        id: `step-${traveller.system}-system-folders-${Date.now().toString(36)}`,
+        name: SYSTEM_FOLDERS_STEP_NAME,
+        stage: 'Set Up',
+        status: 'Not Started',
+        completedAt: null,
+        startedAt: null,
+        technician: '',
+        notes: '',
+        instructions: [...SYSTEM_FOLDERS_STEP_INSTRUCTIONS],
+        checklist: [],
+        measuredData: []
+      };
+
+      const otherSteps = newSteps.filter((s) =>
+        s.name !== 'PAT Test' &&
+        s.name !== 'Pre System Test' &&
+        s.name !== SYSTEM_UNBOXING_STEP_NAME &&
+        s.name !== 'System & PC Unboxing & Set Up' &&
+        s.name !== RECORD_SYSTEM_DETAILS_STEP_NAME &&
+        s.name !== SYSTEM_FOLDERS_STEP_NAME
+      ).map((s) => {
+        let stage = s.stage === 'Setup' ? 'Set Up' : s.stage;
+        if (s.name === 'Laser Beam Alignment & Safety Interlocks' || s.name === 'Grating Turret & Slit Alignment') {
+          stage = 'Calibration';
         }
-      : {
-          id: `step-${traveller.system}-system-setup-${Date.now().toString(36)}`,
-          name: SYSTEM_UNBOXING_STEP_NAME,
-          stage: 'Setup',
-          status: 'Not Started',
-          completedAt: null,
-          startedAt: null,
-          technician: '',
-          notes: '',
-          instructions: [...SYSTEM_UNBOXING_STEP_INSTRUCTIONS],
-          checklist: [],
-          measuredData: []
-        };
-    const existingDetailsStep = newSteps.find(
-      (step) => step.name === RECORD_SYSTEM_DETAILS_STEP_NAME
-    );
-    const detailsStep = existingDetailsStep
-      ? { ...existingDetailsStep, stage: 'Setup' }
-      : {
-          id: `step-${traveller.system}-system-details-${Date.now().toString(36)}`,
-          name: RECORD_SYSTEM_DETAILS_STEP_NAME,
-          stage: 'Setup',
-          status: 'Not Started' as const,
-          completedAt: null,
-          startedAt: null,
-          technician: '',
-          notes: '',
-          instructions: [...RECORD_SYSTEM_DETAILS_STEP_INSTRUCTIONS],
-          checklist: [],
-          measuredData: []
-        };
-    const existingFolderStep = newSteps.find((step) => step.name === SYSTEM_FOLDERS_STEP_NAME);
-    const folderStep = existingFolderStep
-      ? { ...existingFolderStep, stage: 'Setup' }
-      : {
-          id: `step-${traveller.system}-system-folders-${Date.now().toString(36)}`,
-          name: SYSTEM_FOLDERS_STEP_NAME,
-          stage: 'Setup',
-          status: 'Not Started' as const,
-          completedAt: null,
-          startedAt: null,
-          technician: '',
-          notes: '',
-          instructions: [...SYSTEM_FOLDERS_STEP_INSTRUCTIONS],
-          checklist: [],
-          measuredData: []
-        };
-    const normalizedStages = Array.from(new Set(['Setup', ...newStages]));
-    const normalizedSteps = [unboxingStep, detailsStep, folderStep, ...newSteps.filter(
-      (step) => ![
-        SYSTEM_UNBOXING_STEP_NAME,
-        RECORD_SYSTEM_DETAILS_STEP_NAME,
-        SYSTEM_FOLDERS_STEP_NAME
-      ].includes(step.name) && step !== setupStep
-    )];
+        if (s.name === 'Rayleigh Cut-off Filter Calibration' || s.name === 'CCD Detector Cooling & Dark Count Test') {
+          stage = 'Set Up';
+        }
+        return { ...s, stage };
+      });
+
+      const setUpOthers = otherSteps.filter((s) => s.stage === 'Set Up');
+      const calibOthers = otherSteps.filter((s) => s.stage === 'Calibration');
+      const restOthers = otherSteps.filter((s) => s.stage !== 'Set Up' && s.stage !== 'Calibration');
+
+      normalizedSteps = [
+        { ...patStep, stage: 'Set Up' },
+        { ...preStep, stage: 'Set Up' },
+        { ...setupStep, stage: 'Set Up', name: SYSTEM_UNBOXING_STEP_NAME },
+        { ...detailsStep, stage: 'Set Up' },
+        { ...folderStep, stage: 'Set Up' },
+        ...setUpOthers,
+        ...calibOthers,
+        ...restOthers
+      ];
+    } else {
+      const setupStep = newSteps.find(
+        (step) => step.name === SYSTEM_UNBOXING_STEP_NAME || step.name === 'System & PC Unboxing & Set Up'
+      ) || newSteps.find((step) =>
+        (step.stage === 'Set Up' || step.stage === 'Setup') &&
+        step.name !== RECORD_SYSTEM_DETAILS_STEP_NAME &&
+        step.name !== SYSTEM_FOLDERS_STEP_NAME
+      );
+      const unboxingStep: WorkflowStep = setupStep
+        ? {
+            ...setupStep,
+            name: SYSTEM_UNBOXING_STEP_NAME,
+            stage: 'Set Up',
+            instructions: [
+              ...setupStep.instructions,
+              ...(!setupStep.instructions.some((instruction) =>
+                SYSTEM_UNBOXING_STEP_INSTRUCTIONS.includes(instruction)
+              ) ? SYSTEM_UNBOXING_STEP_INSTRUCTIONS : [])
+            ]
+          }
+        : {
+            id: `step-${traveller.system}-system-setup-${Date.now().toString(36)}`,
+            name: SYSTEM_UNBOXING_STEP_NAME,
+            stage: 'Set Up',
+            status: 'Not Started',
+            completedAt: null,
+            startedAt: null,
+            technician: '',
+            notes: '',
+            instructions: [...SYSTEM_UNBOXING_STEP_INSTRUCTIONS],
+            checklist: [],
+            measuredData: []
+          };
+      const existingDetailsStep = newSteps.find(
+        (step) => step.name === RECORD_SYSTEM_DETAILS_STEP_NAME
+      );
+      const detailsStep = existingDetailsStep
+        ? { ...existingDetailsStep, stage: 'Set Up' }
+        : {
+            id: `step-${traveller.system}-system-details-${Date.now().toString(36)}`,
+            name: RECORD_SYSTEM_DETAILS_STEP_NAME,
+            stage: 'Set Up',
+            status: 'Not Started' as const,
+            completedAt: null,
+            startedAt: null,
+            technician: '',
+            notes: '',
+            instructions: [...RECORD_SYSTEM_DETAILS_STEP_INSTRUCTIONS],
+            checklist: [],
+            measuredData: []
+          };
+      const existingFolderStep = newSteps.find((step) => step.name === SYSTEM_FOLDERS_STEP_NAME);
+      const folderStep = existingFolderStep
+        ? { ...existingFolderStep, stage: 'Set Up' }
+        : {
+            id: `step-${traveller.system}-system-folders-${Date.now().toString(36)}`,
+            name: SYSTEM_FOLDERS_STEP_NAME,
+            stage: 'Set Up',
+            status: 'Not Started' as const,
+            completedAt: null,
+            startedAt: null,
+            technician: '',
+            notes: '',
+            instructions: [...SYSTEM_FOLDERS_STEP_INSTRUCTIONS],
+            checklist: [],
+            measuredData: []
+          };
+      normalizedSteps = [unboxingStep, detailsStep, folderStep, ...newSteps.filter(
+        (step) => ![
+          SYSTEM_UNBOXING_STEP_NAME,
+          'System & PC Unboxing & Set Up',
+          RECORD_SYSTEM_DETAILS_STEP_NAME,
+          SYSTEM_FOLDERS_STEP_NAME
+        ].includes(step.name) && step !== setupStep
+      ).map((s) => ({
+        ...s,
+        stage: s.stage === 'Setup' ? 'Set Up' : s.stage
+      }))];
+    }
+
     setTraveller((prev) => ({
       ...prev,
       stages: normalizedStages,
       steps: normalizedSteps,
-      activeStage: 'Setup',
+      activeStage: 'Set Up',
       updatedAt: new Date().toISOString(),
       auditLog: [
         {
@@ -470,7 +619,7 @@ export const App: React.FC = () => {
         ...prev.auditLog
       ]
     }));
-    setActiveStage('Setup');
+    setActiveStage('Set Up');
     setSelectedStepId(null);
     setNotification(`Workflows loaded: ${normalizedSteps.length} steps across ${normalizedStages.length} tabs`);
   };
